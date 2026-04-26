@@ -20,6 +20,25 @@ TestResults/
 *.log
 appsettings.local.json
 config.local.json
+config.json
+device.id
+logs/
+crashes/
+updates/
+stage5/
+release/
+
+# Secrets, tokens and certificates
+.env
+.env.*
+secrets.*
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.token
 
 # OS files
 Thumbs.db

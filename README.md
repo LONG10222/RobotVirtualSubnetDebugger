@@ -174,7 +174,7 @@
 已验证/推荐的发布命令：
 
 ```powershell
-cd "c:\Users\51426\Documents\python项目\Visual studio\RobotVirtualSubnetDebugger"
+cd "<你的项目目录>\RobotVirtualSubnetDebugger"
 .\scripts\publish-release.ps1 -SkipSign
 ```
 
@@ -619,7 +619,7 @@ Services/CrashReporting/FileCrashReportService.cs
 进入 WPF 项目目录：
 
 ```powershell
-cd "c:\Users\51426\Documents\python项目\Visual studio\RobotVirtualSubnetDebugger\RobotVirtualSubnetDebugger"
+cd "<你的项目目录>\RobotVirtualSubnetDebugger\RobotVirtualSubnetDebugger"
 ```
 
 运行：
@@ -633,6 +633,16 @@ dotnet run
 ```powershell
 dotnet build
 ```
+
+## Git 与隐私保护
+
+仓库中不应提交任何本机隐私数据、密钥或运行期文件。当前已按以下规则处理：
+
+- README 中不保留开发者本机绝对路径，只使用 `<你的项目目录>` 这类占位路径。
+- `%AppData%\RobotNet.Windows.Wpf\config.json`、`device.id`、日志、崩溃报告、更新包和脚本输出都属于本机运行期数据，不应提交。
+- `SharedKey` 只能保存在用户本机配置中，不能写入 README、Issue、提交信息或日志。
+- 代码签名证书、证书密码、GitHub Token、`.env`、`.pfx`、`.pem`、`.key` 等私密文件不能提交到仓库。
+- 发布脚本只读取环境变量中的签名配置，不把证书或密码写入源码。
 
 ## 安全边界
 
