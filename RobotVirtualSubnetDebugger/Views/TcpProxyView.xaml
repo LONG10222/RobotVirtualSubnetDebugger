@@ -1,0 +1,148 @@
+<UserControl x:Class="RobotNet.Windows.Wpf.Views.TcpProxyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="TCP 代理 Proxy"
+                           Style="{StaticResource PageTitleStyle}" />
+                <TextBlock Text="第四阶段完成：调试端和网关端使用 SharedKey、HMAC-SHA256、AES-GCM、心跳和超时策略转发目标设备 TCP 流量。"
+                           Style="{StaticResource PageSubtitleStyle}" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        Margin="16,6,0,0">
+                <Button Width="120"
+                        Height="36"
+                        Margin="0,0,10,0"
+                        Command="{Binding StartCommand}"
+                        Content="启动代理" />
+                <Button Width="100"
+                        Height="36"
+                        Command="{Binding StopCommand}"
+                        Content="停止代理" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="22">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="状态" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="0"
+                           Grid.Column="1"
+                           Text="{Binding StatusText}"
+                           Foreground="{Binding StatusColor}"
+                           Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="本机角色" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding RoleText}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="1" Text="监听地址" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EndpointText}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="控制端点" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding ControlEndpointText}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="2" Text="网关端 LAN IP" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GatewayLanIp}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="目标端点" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding TargetEndpointText}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="3" Text="活动连接数" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ActiveConnections}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="最后更新" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding LastUpdatedText}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="4" Text="已发送字节" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding BytesSent}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="已接收字节" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding BytesReceived}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="5" Text="说明" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="5"
+                           Grid.Column="1"
+                           Grid.ColumnSpan="4"
+                           Text="{Binding Message}"
+                           TextWrapping="Wrap"
+                           Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="6" Text="安全模式" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="6"
+                           Grid.Column="1"
+                           Text="{Binding SecurityMode}"
+                           Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="心跳状态" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="6"
+                           Grid.Column="3"
+                           Text="{Binding LastHeartbeatText}"
+                           Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="7" Text="稳定性策略" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="7"
+                           Grid.Column="1"
+                           Grid.ColumnSpan="4"
+                           Text="{Binding StabilityText}"
+                           TextWrapping="Wrap"
+                           Style="{StaticResource DashboardValueStyle}" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Margin="0,18,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="22"
+                VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="当前边界"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+                <TextBlock Margin="0,10,0,0"
+                           Text="调试端启动后监听 127.0.0.1:LocalListenPort；网关端启动后监听 0.0.0.0:ProxyControlPort。调试代码连接本机端口后，流量会以加密签名帧经网关端转发到 TargetDeviceIp:TargetDevicePort。当前仍不创建虚拟网卡，不修改路由、NAT、桥接或防火墙。"
+                           TextWrapping="Wrap"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <TextBlock Margin="0,12,0,0"
+                           Text="{Binding LastError}"
+                           TextWrapping="Wrap"
+                           Foreground="#B42318" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,68 @@
+<UserControl x:Class="RobotNet.Windows.Wpf.Views.DiscoveryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="设备发现 Discovery"
+                           Style="{StaticResource PageTitleStyle}" />
+                <TextBlock Text="{Binding Status}"
+                           Style="{StaticResource PageSubtitleStyle}" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,6,0,0">
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Command="{Binding StartCommand}"
+                        Content="启动发现" />
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Command="{Binding StopCommand}"
+                        Content="停止发现" />
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Command="{Binding RefreshCommand}"
+                        Content="刷新列表" />
+                <Button Width="150"
+                        Height="36"
+                        Command="{Binding ConnectSelectedCommand}"
+                        Content="连接选中网关" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="1">
+            <ListView ItemsSource="{Binding Devices}"
+                      SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                      BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="设备名" Width="170" DisplayMemberBinding="{Binding ComputerName}" />
+                        <GridViewColumn Header="LAN IP" Width="130" DisplayMemberBinding="{Binding LanIp}" />
+                        <GridViewColumn Header="角色" Width="110" DisplayMemberBinding="{Binding RoleText}" />
+                        <GridViewColumn Header="在线状态" Width="90" DisplayMemberBinding="{Binding OnlineText}" />
+                        <GridViewColumn Header="连接状态" Width="90" DisplayMemberBinding="{Binding BusyText}" />
+                        <GridViewColumn Header="已连接对端" Width="160" DisplayMemberBinding="{Binding ConnectedPeerText}" />
+                        <GridViewColumn Header="最后发现" Width="160" DisplayMemberBinding="{Binding LastSeenText}" />
+                        <GridViewColumn Header="设备 ID" Width="230" DisplayMemberBinding="{Binding DeviceId}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+    </Grid>
+</UserControl>

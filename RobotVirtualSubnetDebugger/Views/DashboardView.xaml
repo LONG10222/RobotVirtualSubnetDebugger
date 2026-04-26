@@ -1,0 +1,67 @@
+<UserControl x:Class="RobotNet.Windows.Wpf.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="首页 Dashboard"
+                       FontSize="28"
+                       FontWeight="SemiBold"
+                       Foreground="#18212C" />
+            <TextBlock Text="{Binding Status}"
+                       Margin="0,8,0,0"
+                       Foreground="#5B6673"
+                       FontSize="14" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="24"
+                VerticalAlignment="Top">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="设备名" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceName}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="1" Text="设备 ID" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceId}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="2" Text="当前角色" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Role}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="3" Text="本机局域网 IP" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LocalLanIp}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="4" Text="目标设备网卡 IP" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TargetDeviceAdapterIp}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="5" Text="目标设备 IP" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding TargetDeviceIp}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="6" Text="虚拟 IP" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding VirtualIp}" Style="{StaticResource DashboardValueStyle}" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
