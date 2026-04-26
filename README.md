@@ -2,7 +2,7 @@
 
 ## 本次阶段化设计更新
 
-本次继续按阶段推进项目设计，重点完成第六阶段：`生产发布与 GitHub 更新`。
+本次继续按阶段推进项目设计，重点完成“默认管理员模式 + 简易模式一键连接 + 程序内应用网络配置”。
 
 新增文档：
 
@@ -24,8 +24,24 @@
 - `Services/Proxy/ITcpProxyService.cs`
 - `Services/Proxy/SafeTcpProxyService.cs`
 - `Services/Platform/IVirtualSubnetService.cs`
+- `Services/Platform/INetworkConfigurationExecutor.cs`
+- `Services/Platform/IAdminElevationService.cs`
+- `Services/Platform/IRouteApplyService.cs`
+- `Services/Platform/INatApplyService.cs`
+- `Services/Platform/IAdapterIpConfigurationService.cs`
+- `Services/Platform/IOperationRollbackService.cs`
 - `Services/Platform/WindowsVirtualSubnetService.cs`
+- `Services/Platform/WindowsNetworkConfigurationExecutor.cs`
+- `Services/Platform/WindowsAdminElevationService.cs`
+- `Services/Platform/WindowsRouteApplyService.cs`
+- `Services/Platform/WindowsNatApplyService.cs`
+- `Services/Platform/WindowsAdapterIpConfigurationService.cs`
+- `Services/Platform/FileOperationRollbackService.cs`
+- `Services/Ui/IUserConfirmationService.cs`
+- `Services/Ui/WpfUserConfirmationService.cs`
+- `ViewModels/EasyModeViewModel.cs`
 - `ViewModels/VirtualSubnetViewModel.cs`
+- `Views/EasyModeView.xaml`
 - `Views/VirtualSubnetView.xaml`
 - `Services/Updates/IUpdateService.cs`
 - `Services/Updates/GitHubReleaseUpdateService.cs`
@@ -36,9 +52,11 @@
 - `scripts/publish-release.ps1`
 - `.github/workflows/release.yml`
 
-当前第六阶段状态：
+当前第七阶段状态：
 
-- 第一、二、三、四、五、六阶段 MVP 均已完成。
+- 第一、二、三、四、五、六、七阶段 MVP 均已完成，并新增一键应用网络配置能力。
+- 程序启动时会自动请求管理员权限；用户取消 UAC 时进入只读/诊断模式。
+- 新增 `简易模式 / 一键连接` 页面，普通用户按“主机 A / 主机 B”选择角色即可操作。
 - `SharedKey` 已从预留字段变成 TCP 代理强制认证配置。
 - 控制消息已加入协议版本、会话令牌、nonce、时间戳和 HMAC-SHA256 签名。
 - 数据帧已加入 AES-GCM 加密封装，业务字节流不再以明文帧载荷传输。
@@ -48,8 +66,9 @@
 - TCP 代理页已显示安全模式、稳定性策略和最后心跳时间。
 - 新增 `虚拟网段 Virtual Subnet` 页面。
 - 第五阶段主路线采用“目标网段精确路由 + 网关端 NAT”，避免接管默认路由、DNS、WiFi 或 VPN。
-- 程序会生成管理员 PowerShell 应用/回滚脚本，但不会静默执行系统网络修改。
-- 生成脚本默认带确认开关，必须人工审阅并在管理员 PowerShell 中显式确认后才能生效。
+- 虚拟网段页面已从“只生成脚本”升级为“一键应用 + 回滚 + 导出脚本”。
+- 程序内部可以执行目标网段精确路由、网关端转发、网关端 NAT 和设备网口 IP 确认/配置。
+- 仍保留导出应用/回滚脚本作为高级调试和审计用途。
 - 诊断页已加入真实虚拟网段计划检查。
 - 新增 `发布与更新 Release` 页面。
 - 默认使用 GitHub 仓库 `LONG10222/RobotVirtualSubnetDebugger` 做更新源。
@@ -57,18 +76,20 @@
 - 启动时可后台检查更新，设置页可关闭。
 - 已加入崩溃报告、持久化日志、发布脚本、SHA256 校验文件和 GitHub Actions 标签发布流程。
 
-第六阶段已经完成发布工程化 MVP：可以通过 GitHub Releases 发布 portable zip 或自包含 exe，应用可以检查并下载 GitHub latest release。程序仍然不会静默自替换、不会静默安装驱动、不会静默修改系统网络配置；如果后续要内置 Wintun/TUN 驱动级透明虚拟 IP，需要进入网络能力增强。
+当前已经完成一键连接 MVP：可以通过 GitHub Releases 发布 portable zip 或自包含 exe，应用可以检查并下载 GitHub latest release；程序默认请求管理员权限，并能在 UI 预览、确认后直接应用网络配置。程序仍然不会静默自替换、不会静默安装驱动、不会修改默认路由或 DNS；如果后续要内置 Wintun/TUN 驱动级透明虚拟 IP，需要进入网络能力增强。
 
 ## 开发进度总览
 
-当前状态：项目已经完成第六阶段及之前的 MVP，可以编译、运行、发布到 GitHub Releases，并通过应用内更新页检查和下载新版本；已经具备带认证、签名、加密、心跳和审计的应用层 TCP 代理转发能力，也能生成真实目标网段精确路由/NAT 的管理员应用与回滚脚本。
+当前状态：项目已经完成第七阶段一键连接更新，可以编译、运行、发布到 GitHub Releases，并通过应用内更新页检查和下载新版本；已经具备带认证、签名、加密、心跳和审计的应用层 TCP 代理转发能力，也能在程序内应用目标网段精确路由、网关转发/NAT，并保留脚本导出。
 
 一句话判断：
 
 - 可以用于演示：可以。
 - 可以用于两台电脑之间做设备发现、配置、诊断、模拟连接：可以。
 - 可以让调试端代码通过本机 TCP 端口真实访问网关端后的目标设备端口：可以。
-- 可以生成脚本让调试端通过目标网段精确路由访问远端目标设备网段：可以，需要管理员手动审阅执行脚本。
+- 可以让调试端通过目标网段精确路由访问远端目标设备网段：可以，程序内预览确认后一键应用。
+- 可以让网关端配置设备网口、启用转发/NAT 并启动网关：可以，需管理员模式。
+- 可以回滚本程序上次应用的网络配置：可以。
 - 可以通过 GitHub Releases 检查和下载更新：可以。
 - 可以生成发布包和 SHA256 校验文件：可以。
 - 可以记录崩溃报告和持久化运行日志：可以。
@@ -84,16 +105,17 @@
 | 第四阶段 | 认证、共享密钥校验、加密封装、心跳、断线清理、连接重试、审计日志 | 已完成 MVP | 100% |
 | 第五阶段 | 目标网段精确路由、网关端 NAT、WiFi/VPN 共存、操作预览、回滚脚本 | 已完成 MVP | 100% |
 | 第六阶段 | GitHub Releases 更新、发布包、代码签名接入点、崩溃日志、持久化日志、发布 workflow | 已完成 MVP | 100% |
+| 第七阶段 | 默认管理员模式、简易模式一键连接、程序内应用网络配置、持久化回滚记录 | 已完成 MVP | 100% |
 
 按最终目标估算：
 
 - “安全模拟版 MVP”：100% 完成。
 - “可演示预览版”：100% 完成。
 - “可真实转发 TCP 设备调试流量”：100% 完成。
-- “可生成真实目标网段路由/NAT 脚本的工具”：100% 完成。
+- “可程序内一键应用真实目标网段路由/NAT 的工具”：100% 完成。
 - “可通过 GitHub Releases 发布和更新的 Windows 工具”：100% 完成。
-- “完整虚拟网段远程调试工具”：约 80% 完成。
-- “可签名生产发布的正式工具”：约 70% 完成，剩余主要取决于签名证书、实机长稳测试和是否接入 Wintun/TUN。
+- “完整虚拟网段远程调试工具”：约 85% 完成。
+- “可签名生产发布的正式工具”：约 75% 完成，剩余主要取决于签名证书、实机长稳测试和是否接入 Wintun/TUN。
 
 还剩的核心内容：
 
@@ -102,11 +124,29 @@
 3. 生产签名：需要你准备代码签名证书，并在发布脚本或 GitHub Actions 中配置证书密钥。
 4. 生产安全：证书体系、自动密钥轮换、脚本执行审计、长期稳定性实测。
 
-推荐下一步：用 GitHub 创建 `v0.6.0` Release 验证更新链路；随后补实机长稳测试、签名证书和是否需要 Wintun/TUN 的决策。
+推荐下一步：用 GitHub 创建 `v0.7.0` Release 验证一键管理员网络配置链路；随后补实机长稳测试、签名证书和是否需要 Wintun/TUN 的决策。
 
 ## 一键连接与端口占用处理
 
 为保证后续“一键连接”更顺畅，项目已加入端口占用检测和自动端口选择能力。
+
+## 默认使用方式
+
+普通用户优先使用 `简易模式 / 一键连接`：
+
+1. 下载并启动程序。
+2. 程序会请求管理员权限；如果取消 UAC，只能进入只读/诊断模式。
+3. 两台电脑连接同一个 WiFi。
+4. 主机 A 用网线连接硬件设备。
+5. 主机 A 打开简易模式，选择“这台电脑连接硬件设备（主机 A / 网关端）”。
+6. 主机 A 确认硬件设备 IP、端口、本机设备网口 IP 和子网掩码。
+7. 主机 A 点击“配置网口并启动网关”。
+8. 主机 B 打开简易模式，选择“这台电脑运行控制代码（主机 B / 调试端）”。
+9. 主机 B 刷新并选择发现到的主机 A。
+10. 主机 B 点击“连接主机 A 并启动调试通道”。
+11. 完成后，主机 B 上的控制代码继续访问硬件设备 IP/端口，例如 `192.168.1.10:30003`。
+
+程序会在内部应用必要网络配置，但仍会展示操作预览、写入审计日志并保存可回滚记录。导出脚本仍然保留，但只作为高级调试和审计用途，不再是普通用户主流程。
 
 当前处理逻辑：
 
@@ -159,13 +199,14 @@
 - 第四阶段安全稳定能力已具备：SharedKey、HMAC-SHA256、AES-GCM、会话令牌、nonce 防重放、心跳、空闲超时、连接重试和审计日志已经接入。
 - 第五阶段虚拟网段计划已具备：按角色生成调试端精确路由脚本、网关端转发/NAT 脚本和对应回滚脚本。
 - 第六阶段发布工程化已具备：GitHub Releases 更新检查、发布包下载、启动后台检查、崩溃报告、持久化日志、发布脚本和 GitHub Actions 标签发布 workflow。
-- 所有真实系统修改仍封装在平台服务接口中，程序只生成脚本，不静默执行。
+- 一键网络配置已具备：程序内预览、确认、执行、审计、持久化记录和回滚，不要求普通用户手动打开管理员 PowerShell。
+- 所有真实系统修改仍封装在平台服务接口中，UI 和 ViewModel 不直接执行系统命令。
 - 已验证 `Debug` 构建、`Release` 框架依赖发布、自包含单文件发布均可成功生成。
 
 当前作为正式生产工具发布前仍需确认：
 
 - 尚未内置 Wintun/TUN 或 TAP 驱动级虚拟网卡。
-- 尚未自动执行管理员脚本；真实路由/NAT 变更需要用户手动审阅并执行。
+- 导出脚本仍保留为高级审计用途，但普通用户主流程已改为程序内一键应用。
 - 尚未实现透明 UDP/ICMP/广播/组播网段转发。
 - 尚未实现生产级证书体系、自动密钥轮换和跨版本协议兼容测试。
 - 代码签名证书不能提交到仓库，需要由发布者本机或 GitHub Secrets 配置。
@@ -180,15 +221,15 @@ cd "<你的项目目录>\RobotVirtualSubnetDebugger"
 
 发布产物：
 
-- 框架依赖版 zip：`artifacts\release\RobotNet.Windows.Wpf-0.6.0-win-x64-framework.zip`，目标电脑需要安装 .NET 8 Desktop Runtime。
-- 自包含单文件版：`artifacts\release\RobotNet.Windows.Wpf-0.6.0-win-x64-self-contained.exe`，体积较大，但不要求目标电脑预装 .NET 运行时。
+- 框架依赖版 zip：`artifacts\release\RobotNet.Windows.Wpf-0.7.0-win-x64-framework.zip`，目标电脑需要安装 .NET 8 Desktop Runtime。
+- 自包含单文件版：`artifacts\release\RobotNet.Windows.Wpf-0.7.0-win-x64-self-contained.exe`，体积较大，但不要求目标电脑预装 .NET 运行时。
 - 校验文件：`artifacts\release\checksums.sha256`。
 
 GitHub Release 流程：
 
 ```powershell
-git tag v0.6.0
-git push origin v0.6.0
+git tag v0.7.0
+git push origin v0.7.0
 ```
 
 `.github/workflows/release.yml` 会在 tag 推送后构建发布包并创建 GitHub Release。应用内更新页默认检查 `https://github.com/LONG10222/RobotVirtualSubnetDebugger/releases/latest`。
@@ -295,6 +336,8 @@ git push origin v0.6.0
 ## 当前已实现功能
 
 - WPF 主窗口，左侧导航栏，右侧内容页。
+- 默认请求管理员权限；取消 UAC 时进入只读/诊断模式。
+- 简易模式 / 一键连接：主机 A 配置网口并启动网关，主机 B 自动发现主机 A 并启动调试通道。
 - 程序内完整操作教程页面。
 - MVVM 结构：`Models`、`ViewModels`、`Views`、`Services` 分层。
 - 本机网卡枚举，基于 `System.Net.NetworkInformation`。
@@ -315,7 +358,9 @@ git push origin v0.6.0
 - TCP 代理安全能力：SharedKey 强制认证、HMAC-SHA256 消息签名、AES-GCM 数据帧加密、会话令牌和 nonce 防重放。
 - TCP 代理稳定性能力：心跳、空闲超时、连接重试、关闭帧、断线清理和审计日志。
 - 网络共存诊断：识别默认上网链路、WiFi、VPN/Tunnel/虚拟网卡和目标设备网段冲突风险。
-- 虚拟网段页面：按角色生成目标网段精确路由、网关端 NAT、操作预览和回滚脚本。
+- 虚拟网段页面：按角色预览、应用、回滚目标网段精确路由、网关端转发/NAT，并保留脚本导出。
+- 网络配置执行：程序内部调用平台服务执行受控 PowerShell 网络配置命令。
+- 回滚记录：保存上次网络配置操作，程序重启后仍可查看状态并回滚。
 - 发布与更新页面：GitHub Releases 检查、更新包下载、发布检查项和日志/崩溃/更新目录入口。
 - 崩溃报告：全局异常捕获并写入 `%AppData%\RobotNet.Windows.Wpf\crashes`。
 - 持久化日志：运行日志写入 `%AppData%\RobotNet.Windows.Wpf\logs`。
@@ -345,6 +390,27 @@ git push origin v0.6.0
 
 显示当前设备名、设备 ID、当前角色、本机局域网 IP、目标设备 IP、虚拟 IP 和当前状态。
 
+### 简易模式 / 一键连接
+
+普通用户默认入口。
+
+主机 A：
+
+- 选择“这台电脑连接硬件设备”。
+- 确认硬件设备 IP、端口、设备网口 IP 和子网掩码。
+- 点击“配置网口并启动网关”。
+- 程序内部配置设备网口 IP、启用必要转发/NAT，并启动网关端服务。
+
+主机 B：
+
+- 选择“这台电脑运行控制代码”。
+- 刷新并选择发现到的主机 A。
+- 确认硬件设备 IP、端口和本地监听端口。
+- 点击“连接主机 A 并启动调试通道”。
+- 程序内部添加目标网段精确路由，并启动调试端服务。
+
+简易模式会显示操作预览、执行状态、执行日志，并提供“恢复网络配置”按钮。
+
 ### 操作教程 Tutorial
 
 内置完整使用步骤，包含：
@@ -352,9 +418,10 @@ git push origin v0.6.0
 - 两台电脑角色说明
 - 电脑 A 网关端配置步骤
 - 电脑 B 调试端配置步骤
+- 简易模式一键连接步骤
 - UDP 设备发现使用步骤
 - 安全 TCP 代理使用步骤
-- 第五阶段虚拟网段脚本生成步骤
+- 虚拟网段一键应用与回滚步骤
 - 真实系统修改的安全边界
 - 推荐检查顺序
 
@@ -410,33 +477,34 @@ git push origin v0.6.0
 
 ### 虚拟网段 Virtual Subnet
 
-第五阶段新增页面，用于生成真实目标网段访问的操作计划和脚本。
+高级网络页面，用于预览、应用、回滚和导出真实目标网段访问的操作计划。
 
 调试端：
 
-- 生成目标设备网段的精确路由脚本。
+- 一键应用目标设备网段的精确路由。
 - 只把 `TargetDeviceIp/VirtualSubnetMask` 对应网段指向网关端 LAN IP。
 - 不修改 `0.0.0.0/0` 默认路由，不修改 DNS，不接管 VPN。
 
 网关端：
 
-- 生成 LAN 网卡和目标设备网卡的转发启用脚本。
-- 生成 `New-NetNat` 网关端 NAT 脚本，避免目标设备必须配置回程路由。
-- 生成对应回滚脚本，用于删除 NAT 和恢复转发设置。
+- 一键确认或配置设备网口 IP。
+- 一键启用 LAN 网卡和目标设备网卡的转发。
+- 一键创建或更新 `New-NetNat` 网关端 NAT，避免目标设备必须配置回程路由。
+- 支持回滚上次由本程序应用的路由、转发和 NAT 配置。
 
-脚本生成后保存在：
+导出脚本仍保留为高级功能，脚本生成后保存在：
 
 ```text
 %AppData%\RobotNet.Windows.Wpf\stage5
 ```
 
-脚本默认不会直接生效，需要用管理员 PowerShell 打开，审阅后把确认变量改为 `true` 才能执行。
+普通用户不需要手动打开管理员 PowerShell。程序会在管理员模式下内部执行操作；脚本只用于审计、排查和高级手工恢复。
 
 ### 发布与更新 Release
 
 第六阶段新增页面，用于检查 GitHub Releases、下载发布包和查看发布检查项。
 
-- 当前版本来自程序集版本，当前为 `0.6.0`。
+- 当前版本来自程序集版本，当前为 `0.7.0`。
 - 默认仓库为 `LONG10222/RobotVirtualSubnetDebugger`。
 - 点击“检查更新”会请求 GitHub latest release。
 - 点击“下载更新”会下载优先匹配的 Windows 发布包。
@@ -546,6 +614,12 @@ Services/Platform/IRouteService.cs
 Services/Platform/ITunnelService.cs
 Services/Platform/IVirtualSubnetService.cs
 Services/Platform/IPortAvailabilityService.cs
+Services/Platform/IAdminElevationService.cs
+Services/Platform/INetworkConfigurationExecutor.cs
+Services/Platform/IAdapterIpConfigurationService.cs
+Services/Platform/IRouteApplyService.cs
+Services/Platform/INatApplyService.cs
+Services/Platform/IOperationRollbackService.cs
 Services/Updates/IUpdateService.cs
 Services/CrashReporting/ICrashReportService.cs
 ```
@@ -559,6 +633,12 @@ Services/Platform/WindowsRouteService.cs
 Services/Platform/WindowsTunnelService.cs
 Services/Platform/WindowsVirtualSubnetService.cs
 Services/Platform/WindowsPortAvailabilityService.cs
+Services/Platform/WindowsAdminElevationService.cs
+Services/Platform/WindowsNetworkConfigurationExecutor.cs
+Services/Platform/WindowsAdapterIpConfigurationService.cs
+Services/Platform/WindowsRouteApplyService.cs
+Services/Platform/WindowsNatApplyService.cs
+Services/Platform/FileOperationRollbackService.cs
 Services/Updates/GitHubReleaseUpdateService.cs
 Services/CrashReporting/FileCrashReportService.cs
 ```
@@ -646,19 +726,20 @@ dotnet build
 
 ## 安全边界
 
-程序运行时不会静默执行真实系统网络修改。第四阶段 TCP 代理会打开用户态 TCP 监听，并转发带认证、签名和加密封装的应用层字节流；第五阶段会生成目标网段精确路由、网关端 NAT 和回滚 PowerShell 脚本，但应用本身不会直接创建虚拟网卡、不会直接修改路由、不会直接执行 NAT/桥接、防火墙或管理员权限命令。代码中涉及系统能力的地方应继续遵守以下原则：
+程序运行时不会静默执行真实系统网络修改。第四阶段 TCP 代理会打开用户态 TCP 监听，并转发带认证、签名和加密封装的应用层字节流；当前版本可以在管理员模式下由用户确认后一键应用目标网段精确路由、网关端转发和 NAT，但不会创建驱动级虚拟网卡、不会修改默认路由、不会修改 DNS、不会桥接网卡、不会修改防火墙。代码中涉及系统能力的地方应继续遵守以下原则：
 
 - UI 只负责显示和绑定。
 - ViewModel 不直接执行系统命令。
 - 路由、虚拟网卡、隧道、NAT、桥接、防火墙、管理员权限等能力必须封装到平台服务接口。
 - Windows 优先实现，但接口设计要给 Linux/macOS 留出扩展空间。
-- 真正需要修改系统网络配置时，必须先给出操作预览、生成回滚脚本，并要求用户在管理员 PowerShell 中显式确认。
+- 真正需要修改系统网络配置时，必须先给出操作预览，由用户在 UI 中点击确认，并生成可回滚记录。
+- 程序内部执行网络配置，不再要求普通用户手动打开管理员 PowerShell。
 
 ## WiFi、VPN 与正常上网共存原则
 
-这个工具必须允许用户同时使用 WiFi、VPN 和正常互联网访问。当前 TCP 代理不改默认路由和 DNS，所以不会抢占系统上网路径。第五阶段脚本也只围绕目标设备网段生成精确路由和网关端 NAT，不生成接管默认上网路径的命令。
+这个工具必须允许用户同时使用 WiFi、VPN 和正常互联网访问。当前 TCP 代理不改默认路由和 DNS，所以不会抢占系统上网路径。虚拟网段配置也只围绕目标设备网段应用精确路由和网关端 NAT，不生成接管默认上网路径的命令。
 
-第五阶段真实虚拟网段脚本生成已按以下约束实现：
+真实虚拟网段配置已按以下约束实现：
 
 1. 不允许修改或删除系统默认路由 `0.0.0.0/0`。
 2. 不允许接管系统 DNS，不改 VPN DNS。

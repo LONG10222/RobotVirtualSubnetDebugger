@@ -44,7 +44,7 @@ public sealed class VirtualSubnetPlan
 
     public string StatusText => Status switch
     {
-        DiagnosticStatus.Success => "可生成脚本",
+        DiagnosticStatus.Success => "可应用",
         DiagnosticStatus.Warning => "需要确认",
         DiagnosticStatus.Error => "不可生成",
         _ => "信息"

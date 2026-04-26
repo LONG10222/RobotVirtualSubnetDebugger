@@ -136,6 +136,10 @@
             <views:TutorialView />
         </DataTemplate>
 
+        <DataTemplate DataType="{x:Type viewModels:EasyModeViewModel}">
+            <views:EasyModeView />
+        </DataTemplate>
+
         <DataTemplate DataType="{x:Type viewModels:AdaptersViewModel}">
             <views:AdaptersView />
         </DataTemplate>

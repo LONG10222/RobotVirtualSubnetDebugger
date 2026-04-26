@@ -27,6 +27,10 @@ public sealed class SettingsViewModel : ObservableObject
     private int _proxyHeartbeatIntervalSeconds;
     private int _proxyIdleTimeoutSeconds;
     private int _proxyReconnectAttempts;
+    private bool _enableNat;
+    private bool _enablePreciseRoute;
+    private bool _enableTcpProxyMode;
+    private bool _enableVirtualSubnetMode;
     private string _gitHubRepositoryOwner = string.Empty;
     private string _gitHubRepositoryName = string.Empty;
     private bool _enableUpdateCheckOnStartup;
@@ -61,6 +65,10 @@ public sealed class SettingsViewModel : ObservableObject
         ProxyHeartbeatIntervalSeconds = _config.ProxyHeartbeatIntervalSeconds;
         ProxyIdleTimeoutSeconds = _config.ProxyIdleTimeoutSeconds;
         ProxyReconnectAttempts = _config.ProxyReconnectAttempts;
+        EnableNat = _config.EnableNat;
+        EnablePreciseRoute = _config.EnablePreciseRoute;
+        EnableTcpProxyMode = _config.EnableTcpProxyMode;
+        EnableVirtualSubnetMode = _config.EnableVirtualSubnetMode;
         GitHubRepositoryOwner = _config.GitHubRepositoryOwner;
         GitHubRepositoryName = _config.GitHubRepositoryName;
         EnableUpdateCheckOnStartup = _config.EnableUpdateCheckOnStartup;
@@ -165,6 +173,30 @@ public sealed class SettingsViewModel : ObservableObject
         set => SetProperty(ref _proxyReconnectAttempts, value);
     }
 
+    public bool EnableNat
+    {
+        get => _enableNat;
+        set => SetProperty(ref _enableNat, value);
+    }
+
+    public bool EnablePreciseRoute
+    {
+        get => _enablePreciseRoute;
+        set => SetProperty(ref _enablePreciseRoute, value);
+    }
+
+    public bool EnableTcpProxyMode
+    {
+        get => _enableTcpProxyMode;
+        set => SetProperty(ref _enableTcpProxyMode, value);
+    }
+
+    public bool EnableVirtualSubnetMode
+    {
+        get => _enableVirtualSubnetMode;
+        set => SetProperty(ref _enableVirtualSubnetMode, value);
+    }
+
     public string GitHubRepositoryOwner
     {
         get => _gitHubRepositoryOwner;
@@ -214,6 +246,10 @@ public sealed class SettingsViewModel : ObservableObject
         _config.ProxyHeartbeatIntervalSeconds = ProxyHeartbeatIntervalSeconds;
         _config.ProxyIdleTimeoutSeconds = ProxyIdleTimeoutSeconds;
         _config.ProxyReconnectAttempts = ProxyReconnectAttempts;
+        _config.EnableNat = EnableNat;
+        _config.EnablePreciseRoute = EnablePreciseRoute;
+        _config.EnableTcpProxyMode = EnableTcpProxyMode;
+        _config.EnableVirtualSubnetMode = EnableVirtualSubnetMode;
         _config.GitHubRepositoryOwner = GitHubRepositoryOwner.Trim();
         _config.GitHubRepositoryName = GitHubRepositoryName.Trim();
         _config.EnableUpdateCheckOnStartup = EnableUpdateCheckOnStartup;

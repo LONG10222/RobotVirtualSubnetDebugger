@@ -35,52 +35,52 @@
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap"
-                               Text="电脑 A 是网关端 GatewayAgent：它同时连接局域网和目标设备所在网段。电脑 B 是调试端 DebugClient：它运行你的调试代码，可以先通过安全 TCP 代理访问目标设备端口，也可以在第五阶段生成目标网段路由/NAT 脚本后访问目标设备网段。" />
+                               Text="电脑 A 是网关端 GatewayAgent：它插网线连接硬件设备，同时通过 WiFi 连接普通局域网。电脑 B 是调试端 DebugClient：它运行你的控制代码，通过 WiFi 找到电脑 A，再让流量转发到电脑 A 网口后的硬件设备。" />
 
-                    <TextBlock Text="二、在电脑 A 上配置网关端"
+                    <TextBlock Text="二、主机 A：我连接硬件设备"
                                FontSize="20"
                                FontWeight="SemiBold"
                                Foreground="#18212C" />
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="1. 打开“设置 Settings”，角色选择“网关端 GatewayAgent”。" />
+                        <Run Text="1. 把硬件设备用网线插到主机 A 的网口。" />
                         <LineBreak />
-                        <Run Text="2. 填写目标设备 IP，例如 192.168.1.10。" />
+                        <Run Text="2. 确认主机 A 也连接到和主机 B 相同的 WiFi。" />
                         <LineBreak />
-                        <Run Text="3. 填写目标设备端口，例如 30003。" />
+                        <Run Text="3. 打开“简易模式 / 一键连接”。" />
                         <LineBreak />
-                        <Run Text="4. 填写目标设备网卡 IP，例如电脑 A 上连接目标设备的网卡地址 192.168.1.100。" />
+                        <Run Text="4. 点击“这台电脑连接硬件设备（主机 A / 网关端）”。" />
                         <LineBreak />
-                        <Run Text="5. 保存配置。" />
+                        <Run Text="5. 填写或确认硬件设备 IP，例如 192.168.1.10。" />
                         <LineBreak />
-                        <Run Text="6. 打开“网卡管理 Adapters”，确认有一个网卡被识别为目标网段候选。" />
+                        <Run Text="6. 填写或确认硬件设备端口，例如 30003。" />
                         <LineBreak />
-                        <Run Text="7. 打开“诊断 Diagnostics”，运行诊断，检查目标设备 Ping 和 TCP 端口结果。" />
+                        <Run Text="7. 填写或确认主机 A 设备网口 IP，例如 192.168.1.100。" />
+                        <LineBreak />
+                        <Run Text="8. 点击“配置网口并启动网关”。完成后显示“主机 A 已准备好，等待主机 B 连接”。" />
                     </TextBlock>
 
-                    <TextBlock Text="三、在电脑 B 上配置调试端"
+                    <TextBlock Text="三、主机 B：我运行控制代码"
                                FontSize="20"
                                FontWeight="SemiBold"
                                Foreground="#18212C" />
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="1. 打开“设置 Settings”，角色选择“调试端 DebugClient”。" />
+                        <Run Text="1. 确认主机 B 和主机 A 连接同一个 WiFi。" />
                         <LineBreak />
-                        <Run Text="2. 填写目标设备 IP，例如 192.168.1.10。" />
+                        <Run Text="2. 打开“简易模式 / 一键连接”。" />
                         <LineBreak />
-                        <Run Text="3. 填写目标设备端口，例如 30003。" />
+                        <Run Text="3. 点击“这台电脑运行控制代码（主机 B / 调试端）”。" />
                         <LineBreak />
-                        <Run Text="4. 填写虚拟 IP，例如 192.168.1.101。" />
+                        <Run Text="4. 点击“刷新主机 A”，选择发现到的主机 A。" />
                         <LineBreak />
-                        <Run Text="5. 填写虚拟掩码，例如 255.255.255.0。" />
+                        <Run Text="5. 填写或确认硬件设备 IP 和端口，例如 192.168.1.10:30003。" />
                         <LineBreak />
-                        <Run Text="6. 填写网关端 LAN IP，例如电脑 A 的 WiFi/LAN 地址 192.168.31.20。" />
+                        <Run Text="6. 点击“连接主机 A 并启动调试通道”。" />
                         <LineBreak />
-                        <Run Text="7. 保存配置。" />
-                        <LineBreak />
-                        <Run Text="8. 打开“诊断 Diagnostics”，运行诊断，检查电脑 B 到电脑 A 的局域网连通性和虚拟 IP 规划。" />
+                        <Run Text="7. 完成后，你的控制代码继续访问硬件设备 IP/端口，流量会通过主机 A 转发。" />
                     </TextBlock>
 
                     <TextBlock Text="四、使用设备发现"
@@ -119,24 +119,22 @@
                         <Run Text="5. 程序会使用 SharedKey、HMAC-SHA256、AES-GCM、心跳和超时策略把 TCP 流量转发到网关端后的目标设备端口。" />
                     </TextBlock>
 
-                    <TextBlock Text="六、生成虚拟网段脚本"
+                    <TextBlock Text="六、虚拟网段与高级选项"
                                FontSize="20"
                                FontWeight="SemiBold"
                                Foreground="#18212C" />
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="1. 确认诊断页没有严重错误，尤其是目标设备 IP、网关端 LAN IP、目标设备网卡和端口。" />
+                        <Run Text="1. 普通用户优先使用“简易模式 / 一键连接”。" />
                         <LineBreak />
-                        <Run Text="2. 打开“虚拟网段 Virtual Subnet”，点击“刷新计划”。" />
+                        <Run Text="2. “虚拟网段 Virtual Subnet”页面可以查看将要执行的路由、转发和 NAT 操作。" />
                         <LineBreak />
-                        <Run Text="3. 调试端计划会生成目标网段精确路由；网关端计划会生成网卡转发和 NAT。" />
+                        <Run Text="3. 点击“一键应用”会在程序内部执行网络配置。" />
                         <LineBreak />
-                        <Run Text="4. 点击“生成脚本”，脚本保存到 %AppData%\RobotNet.Windows.Wpf\stage5。" />
+                        <Run Text="4. 点击“回滚配置”可以恢复上次由本程序应用的网络配置。" />
                         <LineBreak />
-                        <Run Text="5. 用管理员 PowerShell 审阅脚本，把确认变量改为 true 后再执行。" />
-                        <LineBreak />
-                        <Run Text="6. 需要撤销时执行同目录下的 rollback 脚本。" />
+                        <Run Text="5. “导出脚本”只作为高级调试和审计用途，不是普通用户主流程。" />
                     </TextBlock>
 
                     <TextBlock Text="七、安全边界"
@@ -146,7 +144,7 @@
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="程序不会静默创建虚拟网卡、不会静默修改路由、不会静默启用 NAT、不会桥接网卡，也不会自动修改防火墙。第五阶段只生成可审阅的管理员脚本，真实系统修改必须由你手动确认执行。" />
+                        <Run Text="程序启动时会请求管理员权限。所有网络修改都会先显示操作预览，并写入审计日志；程序不会修改默认路由 0.0.0.0/0，不修改 DNS，不主动关闭 VPN，也不破坏正常 WiFi 上网。" />
                     </TextBlock>
 
                     <TextBlock Text="八、推荐检查顺序"
@@ -164,7 +162,7 @@
                         <LineBreak />
                         <Run Text="4. 最后运行诊断页面，逐项处理警告和错误。" />
                         <LineBreak />
-                        <Run Text="5. 先用 TCP 代理验证真实端口转发，再决定是否生成并手动执行虚拟网段脚本。" />
+                        <Run Text="5. 需要深入排查时，再进入“虚拟网段”“诊断”“日志”等高级页面。" />
                     </TextBlock>
                 </StackPanel>
             </Border>

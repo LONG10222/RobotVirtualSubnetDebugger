@@ -9,7 +9,7 @@
 
         <DockPanel LastChildFill="False">
             <StackPanel DockPanel.Dock="Left">
-                <TextBlock Text="配置 Settings"
+                <TextBlock Text="高级模式 / 管理员配置"
                            Style="{StaticResource PageTitleStyle}" />
                 <TextBlock Text="{Binding SaveMessage}"
                            Style="{StaticResource PageSubtitleStyle}" />
@@ -37,6 +37,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -172,22 +176,50 @@
                              Margin="0,0,0,14"
                              Text="{Binding ProxyReconnectAttempts, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                    <TextBlock Grid.Row="16" Text="GitHub Owner" Style="{StaticResource DashboardLabelStyle}" />
-                    <TextBox Grid.Row="16"
+                    <TextBlock Grid.Row="16" Text="启用 NAT" Style="{StaticResource DashboardLabelStyle}" />
+                    <CheckBox Grid.Row="16"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="网关端启用 NAT"
+                              IsChecked="{Binding EnableNat, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="17" Text="启用精确路由" Style="{StaticResource DashboardLabelStyle}" />
+                    <CheckBox Grid.Row="17"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="调试端只添加目标网段精确路由"
+                              IsChecked="{Binding EnablePreciseRoute, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="18" Text="启用 TCP 代理" Style="{StaticResource DashboardLabelStyle}" />
+                    <CheckBox Grid.Row="18"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="启动安全 TCP 代理"
+                              IsChecked="{Binding EnableTcpProxyMode, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="19" Text="启用虚拟网段" Style="{StaticResource DashboardLabelStyle}" />
+                    <CheckBox Grid.Row="19"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="允许应用路由、转发和 NAT"
+                              IsChecked="{Binding EnableVirtualSubnetMode, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="20" Text="GitHub Owner" Style="{StaticResource DashboardLabelStyle}" />
+                    <TextBox Grid.Row="20"
                              Grid.Column="1"
                              Height="32"
                              Margin="0,0,0,14"
                              Text="{Binding GitHubRepositoryOwner, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                    <TextBlock Grid.Row="17" Text="GitHub Repo" Style="{StaticResource DashboardLabelStyle}" />
-                    <TextBox Grid.Row="17"
+                    <TextBlock Grid.Row="21" Text="GitHub Repo" Style="{StaticResource DashboardLabelStyle}" />
+                    <TextBox Grid.Row="21"
                              Grid.Column="1"
                              Height="32"
                              Margin="0,0,0,14"
                              Text="{Binding GitHubRepositoryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                    <TextBlock Grid.Row="18" Text="启动检查更新" Style="{StaticResource DashboardLabelStyle}" />
-                    <CheckBox Grid.Row="18"
+                    <TextBlock Grid.Row="22" Text="启动检查更新" Style="{StaticResource DashboardLabelStyle}" />
+                    <CheckBox Grid.Row="22"
                               Grid.Column="1"
                               Margin="0,4,0,14"
                               VerticalAlignment="Center"

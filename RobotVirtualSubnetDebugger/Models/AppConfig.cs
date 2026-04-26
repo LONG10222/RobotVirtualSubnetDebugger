@@ -36,6 +36,14 @@ public sealed class AppConfig
 
     public int ProxyReconnectAttempts { get; set; } = 2;
 
+    public bool EnableNat { get; set; } = true;
+
+    public bool EnablePreciseRoute { get; set; } = true;
+
+    public bool EnableTcpProxyMode { get; set; } = true;
+
+    public bool EnableVirtualSubnetMode { get; set; } = true;
+
     public string GitHubRepositoryOwner { get; set; } = "LONG10222";
 
     public string GitHubRepositoryName { get; set; } = "RobotVirtualSubnetDebugger";

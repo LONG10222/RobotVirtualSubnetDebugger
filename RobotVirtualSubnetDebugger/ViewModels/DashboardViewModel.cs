@@ -10,6 +10,7 @@ public sealed class DashboardViewModel : ObservableObject
 {
     private readonly IConfigurationService _configurationService;
     private readonly INetworkAdapterService _networkAdapterService;
+    private readonly IAdminElevationService _adminElevationService;
     private string _deviceName = string.Empty;
     private string _deviceId = string.Empty;
     private DeviceRole _role;
@@ -17,14 +18,17 @@ public sealed class DashboardViewModel : ObservableObject
     private string _targetDeviceAdapterIp = string.Empty;
     private string _targetDeviceIp = string.Empty;
     private string _virtualIp = string.Empty;
+    private string _adminStatus = string.Empty;
     private string _status = string.Empty;
 
     public DashboardViewModel(
         IConfigurationService configurationService,
-        INetworkAdapterService networkAdapterService)
+        INetworkAdapterService networkAdapterService,
+        IAdminElevationService adminElevationService)
     {
         _configurationService = configurationService;
         _networkAdapterService = networkAdapterService;
+        _adminElevationService = adminElevationService;
         RefreshCommand = new RelayCommand(Refresh);
         Refresh();
     }
@@ -73,6 +77,12 @@ public sealed class DashboardViewModel : ObservableObject
         private set => SetProperty(ref _virtualIp, value);
     }
 
+    public string AdminStatus
+    {
+        get => _adminStatus;
+        private set => SetProperty(ref _adminStatus, value);
+    }
+
     public string Status
     {
         get => _status;
@@ -92,6 +102,7 @@ public sealed class DashboardViewModel : ObservableObject
         TargetDeviceAdapterIp = targetAdapter?.IPv4Address ?? "-";
         TargetDeviceIp = config.TargetDeviceIp;
         VirtualIp = config.VirtualIp;
-        Status = "第一阶段 MVP：配置、发现、诊断均为安全实现";
+        AdminStatus = _adminElevationService.CheckAdminPrivilege().Message;
+        Status = "简易模式可一键预览、应用和回滚网络配置；高级模式保留脚本导出与审计。";
     }
 }

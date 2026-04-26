@@ -10,15 +10,24 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
     private const string NatName = "RobotNetTargetNat";
     private readonly INetworkAdapterService _networkAdapterService;
     private readonly IPrivilegeService _privilegeService;
+    private readonly IRouteApplyService _routeApplyService;
+    private readonly INatApplyService _natApplyService;
+    private readonly IAdapterIpConfigurationService _adapterIpConfigurationService;
     private readonly ILogService _logService;
 
     public WindowsVirtualSubnetService(
         INetworkAdapterService networkAdapterService,
         IPrivilegeService privilegeService,
+        IRouteApplyService routeApplyService,
+        INatApplyService natApplyService,
+        IAdapterIpConfigurationService adapterIpConfigurationService,
         ILogService logService)
     {
         _networkAdapterService = networkAdapterService;
         _privilegeService = privilegeService;
+        _routeApplyService = routeApplyService;
+        _natApplyService = natApplyService;
+        _adapterIpConfigurationService = adapterIpConfigurationService;
         _logService = logService;
     }
 
@@ -56,6 +65,11 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
 
         var adapters = _networkAdapterService.GetAdapters();
         AddCoexistenceWarnings(plan, config, adapters);
+        if (!config.EnableVirtualSubnetMode)
+        {
+            plan.Status = DiagnosticStatus.Warning;
+            plan.Warnings.Add("虚拟网段模式未启用。当前只会使用 TCP 代理模式。");
+        }
 
         switch (config.Role)
         {
@@ -72,7 +86,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
                 break;
         }
 
-        plan.CanGenerateScripts = plan.Status != DiagnosticStatus.Error && plan.Steps.Count > 0;
+        plan.CanGenerateScripts = plan.Status != DiagnosticStatus.Error && plan.Steps.Any(step => step.WillModifySystem);
         return plan;
     }
 
@@ -119,7 +133,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             Status = plan.Status,
             Message = plan.Summary,
             Suggestion = plan.CanGenerateScripts
-                ? $"可在“虚拟网段 Virtual Subnet”页面生成管理员脚本。目标网段：{plan.TargetSubnetCidr}。"
+                ? $"可在“虚拟网段 Virtual Subnet”页面预览后一键应用，也可导出脚本审计。目标网段：{plan.TargetSubnetCidr}。"
                 : string.Join("；", plan.Warnings),
             RequiresAdministrator = true
         });
@@ -161,17 +175,14 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             WillModifySystem = false,
             RiskLevel = "Low"
         });
-        plan.Steps.Add(new VirtualSubnetOperationStep
+        if (config.EnablePreciseRoute && config.EnableVirtualSubnetMode)
         {
-            Order = 2,
-            Name = "添加目标网段精确路由",
-            Description = $"仅把 {plan.TargetSubnetCidr} 指向网关端 {config.GatewayLanIp}，不影响其他互联网或 VPN 流量。",
-            Command = $"New-NetRoute -DestinationPrefix '{plan.TargetSubnetCidr}' -InterfaceAlias '{EscapePowerShell(plan.LanInterfaceName)}' -NextHop '{config.GatewayLanIp}' -RouteMetric 5 -PolicyStore ActiveStore",
-            RollbackCommand = $"Remove-NetRoute -DestinationPrefix '{plan.TargetSubnetCidr}' -NextHop '{config.GatewayLanIp}' -Confirm:$false",
-            RequiresAdministrator = true,
-            WillModifySystem = true,
-            RiskLevel = "Medium"
-        });
+            plan.Steps.Add(_routeApplyService.CreatePreciseRouteStep(plan, config, plan.LanInterfaceName));
+        }
+        else
+        {
+            plan.Warnings.Add("精确路由未启用。调试端只能使用 TCP 代理模式，不能直接访问目标设备 IP。");
+        }
 
         if (plan.Status != DiagnosticStatus.Warning)
         {
@@ -223,6 +234,22 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             plan.Status = DiagnosticStatus.Warning;
         }
 
+        if (!config.EnableVirtualSubnetMode)
+        {
+            plan.Status = DiagnosticStatus.Warning;
+            plan.Summary = "虚拟网段模式未启用，网关端不会应用网口 IP、转发或 NAT。";
+            return;
+        }
+
+        var ensureAdapterIpStep = _adapterIpConfigurationService.CreateEnsureAdapterIpStep(
+            plan.TargetInterfaceName,
+            config.TargetDeviceAdapterIp,
+            config.VirtualSubnetMask);
+        if (ensureAdapterIpStep is not null)
+        {
+            plan.Steps.Add(ensureAdapterIpStep);
+        }
+
         plan.Steps.Add(new VirtualSubnetOperationStep
         {
             Order = 1,
@@ -236,7 +263,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         });
         plan.Steps.Add(new VirtualSubnetOperationStep
         {
-            Order = 2,
+            Order = 20,
             Name = "启用 LAN 网卡转发",
             Description = "允许网关端转发来自调试端 LAN 的目标网段流量。",
             Command = $"Set-NetIPInterface -InterfaceAlias '{EscapePowerShell(plan.LanInterfaceName)}' -Forwarding Enabled",
@@ -247,7 +274,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         });
         plan.Steps.Add(new VirtualSubnetOperationStep
         {
-            Order = 3,
+            Order = 30,
             Name = "启用目标设备网卡转发",
             Description = "允许网关端把流量转发到目标设备网段。",
             Command = $"Set-NetIPInterface -InterfaceAlias '{EscapePowerShell(plan.TargetInterfaceName)}' -Forwarding Enabled",
@@ -256,17 +283,14 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             WillModifySystem = true,
             RiskLevel = "Medium"
         });
-        plan.Steps.Add(new VirtualSubnetOperationStep
+        if (config.EnableNat && config.EnableVirtualSubnetMode)
         {
-            Order = 4,
-            Name = "创建网关端 NAT",
-            Description = $"把来自 {plan.LanSubnetCidr} 的调试端流量 NAT 到目标设备网段，避免目标设备需要回程路由。",
-            Command = $"New-NetNat -Name '{NatName}' -InternalIPInterfaceAddressPrefix '{plan.LanSubnetCidr}'",
-            RollbackCommand = $"Remove-NetNat -Name '{NatName}' -Confirm:$false",
-            RequiresAdministrator = true,
-            WillModifySystem = true,
-            RiskLevel = "High"
-        });
+            plan.Steps.Add(_natApplyService.CreateNatStep(NatName, plan.LanSubnetCidr));
+        }
+        else
+        {
+            plan.Warnings.Add("NAT 未启用。目标设备可能需要配置回程路由才能访问调试端。");
+        }
 
         if (plan.Status != DiagnosticStatus.Warning)
         {
@@ -295,13 +319,13 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             plan.Warnings.Add($"目标设备网段与活动网卡重叠：{string.Join("、", overlaps.Select(adapter => $"{adapter.Name}({adapter.IPv4Address})"))}。");
         }
 
-        plan.Warnings.Add("第五阶段脚本只允许目标网段精确路由，不修改 0.0.0.0/0 默认路由。");
-        plan.Warnings.Add("第五阶段脚本不修改 DNS，不接管 VPN DNS。");
+        plan.Warnings.Add("网络配置只允许目标网段精确路由，不修改 0.0.0.0/0 默认路由。");
+        plan.Warnings.Add("网络配置不修改 DNS，不接管 VPN DNS。");
 
         var admin = _privilegeService.CheckAdministrator();
         if (!IsAdministratorSuccess(admin))
         {
-            plan.Warnings.Add("当前进程不是管理员。生成脚本不需要管理员，但执行脚本必须使用管理员 PowerShell。");
+            plan.Warnings.Add("当前进程不是管理员。预览和导出脚本可用，但一键应用或回滚必须启用管理员模式。");
         }
     }
 

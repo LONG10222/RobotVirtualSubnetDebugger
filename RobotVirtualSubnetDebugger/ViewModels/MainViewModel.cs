@@ -7,6 +7,7 @@ using RobotNet.Windows.Wpf.Services.Logging;
 using RobotNet.Windows.Wpf.Services.Platform;
 using RobotNet.Windows.Wpf.Services.Proxy;
 using RobotNet.Windows.Wpf.Services.Tunnel;
+using RobotNet.Windows.Wpf.Services.Ui;
 using RobotNet.Windows.Wpf.Services.Updates;
 using RobotNet.Windows.Wpf.Utils;
 
@@ -25,18 +26,33 @@ public sealed class MainViewModel : ObservableObject
         ITunnelSessionService tunnelSessionService,
         ITcpProxyService tcpProxyService,
         IVirtualSubnetService virtualSubnetService,
+        INetworkConfigurationExecutor networkConfigurationExecutor,
+        IAdminElevationService adminElevationService,
+        IUserConfirmationService userConfirmationService,
         IUpdateService updateService,
         ICrashReportService crashReportService,
         IConnectionPreflightService connectionPreflightService,
         ILogService logService)
     {
-        var dashboardViewModel = new DashboardViewModel(configurationService, networkAdapterService);
+        var dashboardViewModel = new DashboardViewModel(configurationService, networkAdapterService, adminElevationService);
         var tutorialViewModel = new TutorialViewModel();
+        var easyModeViewModel = new EasyModeViewModel(
+            configurationService,
+            networkAdapterService,
+            discoveryService,
+            networkConfigurationExecutor,
+            connectionPreflightService,
+            userConfirmationService,
+            logService);
         var adaptersViewModel = new AdaptersViewModel(networkAdapterService);
         var discoveryViewModel = new DiscoveryViewModel(configurationService, discoveryService, tunnelSessionService, connectionPreflightService, logService);
         var sessionViewModel = new SessionViewModel(configurationService, tunnelSessionService, connectionPreflightService);
         var tcpProxyViewModel = new TcpProxyViewModel(configurationService, connectionPreflightService, tcpProxyService);
-        var virtualSubnetViewModel = new VirtualSubnetViewModel(configurationService, virtualSubnetService);
+        var virtualSubnetViewModel = new VirtualSubnetViewModel(
+            configurationService,
+            virtualSubnetService,
+            networkConfigurationExecutor,
+            userConfirmationService);
         var productionViewModel = new ProductionViewModel(configurationService, updateService, crashReportService, logService);
         var settingsViewModel = new SettingsViewModel(configurationService, logService);
         var diagnosticsViewModel = new DiagnosticsViewModel(configurationService, diagnosticService);
@@ -47,6 +63,7 @@ public sealed class MainViewModel : ObservableObject
         NavigationItems =
         [
             new NavigationItemViewModel("Dashboard", "首页 Dashboard", dashboardViewModel, true),
+            new NavigationItemViewModel("EasyMode", "简易模式 One Click", easyModeViewModel, true),
             new NavigationItemViewModel("Tutorial", "操作教程 Tutorial", tutorialViewModel, true),
             new NavigationItemViewModel("Adapters", "网卡管理 Adapters", adaptersViewModel, true),
             new NavigationItemViewModel("Discovery", "设备发现 Discovery", discoveryViewModel, true),
@@ -54,12 +71,12 @@ public sealed class MainViewModel : ObservableObject
             new NavigationItemViewModel("TcpProxy", "TCP 代理 Proxy", tcpProxyViewModel, true),
             new NavigationItemViewModel("VirtualSubnet", "虚拟网段 Virtual Subnet", virtualSubnetViewModel, true),
             new NavigationItemViewModel("Production", "发布更新 Release", productionViewModel, true),
-            new NavigationItemViewModel("Settings", "配置 Settings", settingsViewModel, true),
+            new NavigationItemViewModel("Settings", "高级模式 Settings", settingsViewModel, true),
             new NavigationItemViewModel("Diagnostics", "诊断 Diagnostics", diagnosticsViewModel, true),
             new NavigationItemViewModel("Logs", "日志 Logs", logsViewModel, true)
         ];
 
-        SelectedNavigationItem = NavigationItems[0];
+        SelectedNavigationItem = NavigationItems[1];
     }
 
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }

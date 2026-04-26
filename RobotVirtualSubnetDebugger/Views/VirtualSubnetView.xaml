@@ -12,7 +12,7 @@
             <StackPanel DockPanel.Dock="Left">
                 <TextBlock Text="虚拟网段 Virtual Subnet"
                            Style="{StaticResource PageTitleStyle}" />
-                <TextBlock Text="第五阶段：生成目标网段精确路由与网关端 NAT 的管理员脚本，保留 WiFi、VPN、默认路由和 DNS。"
+                <TextBlock Text="预览并一键应用目标网段精确路由、网关端转发和 NAT；保留 WiFi、VPN、默认路由和 DNS。"
                            Style="{StaticResource PageSubtitleStyle}" />
             </StackPanel>
 
@@ -24,10 +24,20 @@
                         Margin="0,0,10,0"
                         Command="{Binding RefreshCommand}"
                         Content="刷新计划" />
-                <Button Width="120"
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,10,0"
+                        Command="{Binding ApplyCommand}"
+                        Content="一键应用" />
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,10,0"
+                        Command="{Binding RollbackCommand}"
+                        Content="回滚配置" />
+                <Button Width="160"
                         Height="36"
                         Command="{Binding ExportScriptsCommand}"
-                        Content="生成脚本" />
+                        Content="导出应用/回滚脚本" />
             </StackPanel>
         </DockPanel>
 
@@ -47,6 +57,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -98,6 +109,11 @@
                            Text="{Binding Summary}"
                            TextWrapping="Wrap"
                            Style="{StaticResource DashboardValueStyle}" />
+                <TextBlock Grid.Row="6" Text="执行状态" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ExecutionStatus}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="最后执行" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding LastExecutionTime}" Style="{StaticResource DashboardValueStyle}" />
             </Grid>
         </Border>
 
@@ -136,6 +152,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="160" />
                     </Grid.RowDefinitions>
 
                     <ListView ItemsSource="{Binding Steps}"
@@ -174,6 +191,12 @@
                                    Foreground="{StaticResource TextPrimaryBrush}"
                                    TextWrapping="Wrap" />
                     </StackPanel>
+                    <ListBox Grid.Row="2"
+                             Margin="18,0,18,18"
+                             ItemsSource="{Binding ExecutionLogs}"
+                             BorderThickness="0"
+                             FontFamily="Consolas"
+                             FontSize="12" />
                 </Grid>
             </Border>
         </Grid>

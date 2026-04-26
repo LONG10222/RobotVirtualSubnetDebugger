@@ -39,6 +39,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Text="设备名" Style="{StaticResource DashboardLabelStyle}" />
@@ -61,6 +62,9 @@
 
                 <TextBlock Grid.Row="6" Text="虚拟 IP" Style="{StaticResource DashboardLabelStyle}" />
                 <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding VirtualIp}" Style="{StaticResource DashboardValueStyle}" />
+
+                <TextBlock Grid.Row="7" Text="管理员模式" Style="{StaticResource DashboardLabelStyle}" />
+                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding AdminStatus}" Style="{StaticResource DashboardValueStyle}" />
             </Grid>
         </Border>
     </Grid>

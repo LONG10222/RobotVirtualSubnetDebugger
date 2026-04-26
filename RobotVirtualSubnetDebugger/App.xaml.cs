@@ -7,6 +7,7 @@ using RobotNet.Windows.Wpf.Services.Logging;
 using RobotNet.Windows.Wpf.Services.Platform;
 using RobotNet.Windows.Wpf.Services.Proxy;
 using RobotNet.Windows.Wpf.Services.Tunnel;
+using RobotNet.Windows.Wpf.Services.Ui;
 using RobotNet.Windows.Wpf.Services.Updates;
 using RobotNet.Windows.Wpf.ViewModels;
 
@@ -19,19 +20,45 @@ public partial class App : Application
         base.OnStartup(e);
 
         var logService = new SimpleLogService();
+        var adminElevationService = new WindowsAdminElevationService(logService);
+        var elevationResult = adminElevationService.EnsureRunningAsAdmin(e.Args);
+        if (elevationResult.RelaunchStarted)
+        {
+            Shutdown();
+            return;
+        }
+
         var crashReportService = new FileCrashReportService(logService);
         crashReportService.RegisterGlobalHandlers();
         var identityService = new WindowsDeviceIdentityService();
         var networkAdapterService = new WindowsNetworkAdapterService();
         var privilegeService = new WindowsPrivilegeService();
+        var routeApplyService = new WindowsRouteApplyService();
+        var natApplyService = new WindowsNatApplyService();
+        var adapterIpConfigurationService = new WindowsAdapterIpConfigurationService();
         var virtualAdapterService = new WindowsVirtualAdapterService();
         var routeService = new WindowsRouteService();
         var tunnelService = new WindowsTunnelService();
         var portAvailabilityService = new WindowsPortAvailabilityService(logService);
-        var virtualSubnetService = new WindowsVirtualSubnetService(networkAdapterService, privilegeService, logService);
+        var virtualSubnetService = new WindowsVirtualSubnetService(
+            networkAdapterService,
+            privilegeService,
+            routeApplyService,
+            natApplyService,
+            adapterIpConfigurationService,
+            logService);
         var tcpProxyService = new SafeTcpProxyService(portAvailabilityService, logService);
+        var tcpProxyServiceAdapter = new TcpProxyServiceAdapter(tcpProxyService);
+        var rollbackService = new FileOperationRollbackService(logService);
+        var networkConfigurationExecutor = new WindowsNetworkConfigurationExecutor(
+            virtualSubnetService,
+            adminElevationService,
+            rollbackService,
+            tcpProxyServiceAdapter,
+            logService);
         var connectionPreflightService = new ConnectionPreflightService(portAvailabilityService, logService);
         var configurationService = new JsonConfigurationService(identityService, logService);
+        var userConfirmationService = new WpfUserConfirmationService();
         var updateService = new GitHubReleaseUpdateService(logService);
         var tunnelSessionService = new SimulatedTunnelSessionService(logService);
         var discoveryService = new UdpDiscoveryService(configurationService, networkAdapterService, logService, tunnelSessionService);
@@ -58,6 +85,9 @@ public partial class App : Application
                 tunnelSessionService,
                 tcpProxyService,
                 virtualSubnetService,
+                networkConfigurationExecutor,
+                adminElevationService,
+                userConfirmationService,
                 updateService,
                 crashReportService,
                 connectionPreflightService,
