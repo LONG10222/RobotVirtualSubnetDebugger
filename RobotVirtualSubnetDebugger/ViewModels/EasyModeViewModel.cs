@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Security.Cryptography;
-using System.Text;
 using System.Windows;
 using RobotNet.Windows.Wpf.Commands;
 using RobotNet.Windows.Wpf.Models;
@@ -31,6 +30,7 @@ public sealed class EasyModeViewModel : ObservableObject
     private string _virtualSubnetMask = "255.255.255.0";
     private int _localListenPort = 30003;
     private string _gatewayLanIp = string.Empty;
+    private string _sharedKey = string.Empty;
     private string _status = "请选择这台电脑的角色。";
     private string _planSummary = string.Empty;
     private NetworkConfigurationApplyStatus _applyStatus = NetworkConfigurationApplyStatus.NotConfigured;
@@ -59,6 +59,7 @@ public sealed class EasyModeViewModel : ObservableObject
         ApplyGatewayCommand = new AsyncRelayCommand(ApplyGatewayAsync);
         ApplyClientCommand = new AsyncRelayCommand(ApplyClientAsync);
         RollbackCommand = new AsyncRelayCommand(RollbackAsync);
+        GenerateSharedKeyCommand = new RelayCommand(GenerateSharedKey);
 
         _discoveryService.DeviceDiscovered += OnDeviceDiscovered;
         _networkConfigurationExecutor.ExecutionLogAdded += OnExecutionLogAdded;
@@ -79,6 +80,8 @@ public sealed class EasyModeViewModel : ObservableObject
     public AsyncRelayCommand ApplyClientCommand { get; }
 
     public AsyncRelayCommand RollbackCommand { get; }
+
+    public RelayCommand GenerateSharedKeyCommand { get; }
 
     public ObservableCollection<DeviceInfo> Gateways { get; } = [];
 
@@ -157,6 +160,12 @@ public sealed class EasyModeViewModel : ObservableObject
     {
         get => _gatewayLanIp;
         set => SetProperty(ref _gatewayLanIp, value);
+    }
+
+    public string SharedKey
+    {
+        get => _sharedKey;
+        set => SetProperty(ref _sharedKey, value);
     }
 
     public string Status
@@ -257,6 +266,19 @@ public sealed class EasyModeViewModel : ObservableObject
         var config = BuildConfigFromInput();
         config.Role = DeviceRole.GatewayAgent;
         SelectedRole = DeviceRole.GatewayAgent;
+        if (string.IsNullOrWhiteSpace(config.SharedKey))
+        {
+            GenerateSharedKey();
+            config.SharedKey = SharedKey.Trim();
+            Status = "已为主机 A 生成配对密钥，请把同一个密钥填到主机 B。";
+        }
+
+        ExecutionLogs.Clear();
+        if (!EnsurePortsReady(config))
+        {
+            return;
+        }
+
         Preview();
         if (!ConfirmNetworkChange("确认配置主机 A / 网关端"))
         {
@@ -266,15 +288,19 @@ public sealed class EasyModeViewModel : ObservableObject
 
         _configurationService.Save(config);
         ApplyStatus = NetworkConfigurationApplyStatus.Applying;
-        Status = "正在配置网口并启动网关。";
-        ExecutionLogs.Clear();
+        Status = "正在配置网口并启动被动监听。";
 
         var result = await _networkConfigurationExecutor.ApplyGatewayConfigurationAsync(config);
         ApplyStatus = result.Status;
-        Status = result.Success
-            ? "主机 A 已准备好，等待主机 B 连接。"
-            : result.Message;
         AddResultLogs(result);
+        if (result.Success)
+        {
+            await StartGatewayDiscoverabilityAsync();
+        }
+        else
+        {
+            Status = result.Message;
+        }
     }
 
     private async Task ApplyClientAsync()
@@ -282,6 +308,19 @@ public sealed class EasyModeViewModel : ObservableObject
         var config = BuildConfigFromInput();
         config.Role = DeviceRole.DebugClient;
         SelectedRole = DeviceRole.DebugClient;
+        if (string.IsNullOrWhiteSpace(config.SharedKey))
+        {
+            ApplyStatus = NetworkConfigurationApplyStatus.Failed;
+            Status = "请先填写与主机 A 相同的配对密钥，再连接主机 A。";
+            return;
+        }
+
+        ExecutionLogs.Clear();
+        if (!EnsurePortsReady(config))
+        {
+            return;
+        }
+
         Preview();
         if (!ConfirmNetworkChange("确认连接主机 A / 调试端"))
         {
@@ -292,7 +331,6 @@ public sealed class EasyModeViewModel : ObservableObject
         _configurationService.Save(config);
         ApplyStatus = NetworkConfigurationApplyStatus.Applying;
         Status = "正在连接主机 A 并启动调试通道。";
-        ExecutionLogs.Clear();
 
         var result = await _networkConfigurationExecutor.ApplyClientConfigurationAsync(config);
         ApplyStatus = result.Status;
@@ -300,6 +338,48 @@ public sealed class EasyModeViewModel : ObservableObject
             ? "主机 B 已连接，现在你的代码可以访问目标设备 IP/端口。"
             : result.Message;
         AddResultLogs(result);
+    }
+
+    private bool EnsurePortsReady(AppConfig config)
+    {
+        var preflight = _connectionPreflightService.EnsurePortsReady(config);
+        if (preflight.ConfigChanged)
+        {
+            _configurationService.Save(config);
+            LocalListenPort = config.LocalListenPort;
+        }
+
+        foreach (var item in preflight.Items)
+        {
+            ExecutionLogs.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {item.Name}：{item.Message}");
+        }
+
+        if (preflight.CanContinue)
+        {
+            return true;
+        }
+
+        ApplyStatus = NetworkConfigurationApplyStatus.Failed;
+        Status = preflight.Summary;
+        return false;
+    }
+
+    private async Task StartGatewayDiscoverabilityAsync()
+    {
+        try
+        {
+            await _discoveryService.StartAsync();
+            Status = "主机 A 已准备好：正在被主机 B 发现，并被动等待调试端连接。";
+            ExecutionLogs.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} 主机 A 已启动可发现状态，只等待主机 B 主动发现和连接。");
+            _logService.Audit("网关端已进入被动等待模式：UDP 可发现，TCP 代理监听。");
+        }
+        catch (Exception ex)
+        {
+            ApplyStatus = NetworkConfigurationApplyStatus.Failed;
+            Status = $"网关端网络配置已应用，但启动被发现服务失败：{ex.Message}";
+            ExecutionLogs.Add(Status);
+            _logService.Error("网关端启动被发现服务失败。", ex);
+        }
     }
 
     private async Task RollbackAsync()
@@ -347,16 +427,20 @@ public sealed class EasyModeViewModel : ObservableObject
         config.VirtualSubnetMask = VirtualSubnetMask.Trim();
         config.LocalListenPort = LocalListenPort;
         config.GatewayLanIp = GatewayLanIp.Trim();
+        config.SharedKey = SharedKey.Trim();
         config.EnableNat = true;
         config.EnablePreciseRoute = true;
         config.EnableTcpProxyMode = true;
         config.EnableVirtualSubnetMode = true;
-        if (string.IsNullOrWhiteSpace(config.SharedKey))
-        {
-            config.SharedKey = CreateSimpleModeSharedKey();
-        }
 
         return config;
+    }
+
+    private void GenerateSharedKey()
+    {
+        SharedKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        Status = "已生成配对密钥。请把同一个密钥填到另一台电脑。";
+        _logService.Audit("简易模式已生成新的配对密钥，密钥内容未写入日志。");
     }
 
     private void LoadFromConfig()
@@ -371,6 +455,7 @@ public sealed class EasyModeViewModel : ObservableObject
         VirtualSubnetMask = config.VirtualSubnetMask;
         LocalListenPort = config.LocalListenPort;
         GatewayLanIp = config.GatewayLanIp;
+        SharedKey = config.SharedKey;
 
         var lastRecord = _networkConfigurationExecutor.GetLastOperation();
         if (lastRecord is not null)
@@ -445,12 +530,6 @@ public sealed class EasyModeViewModel : ObservableObject
             ExecutionLogs.Add(result.Error);
             _logService.Error(result.Error);
         }
-    }
-
-    private static string CreateSimpleModeSharedKey()
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes("RobotNet.Windows.Wpf.SimpleMode.LocalPreviewKey.v1"));
-        return Convert.ToBase64String(bytes);
     }
 
     private static void RunOnUiThread(Action action)

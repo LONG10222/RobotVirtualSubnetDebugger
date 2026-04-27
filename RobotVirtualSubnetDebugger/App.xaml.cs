@@ -111,10 +111,17 @@ public partial class App : Application
 
         _ = Task.Run(async () =>
         {
-            var result = await updateService.CheckForUpdatesAsync(config);
-            if (result.IsUpdateAvailable)
+            try
             {
-                logService.Audit($"启动检查发现新版本：{result.LatestVersion}，发布页：{result.ReleaseUrl}");
+                var result = await updateService.CheckForUpdatesAsync(config);
+                if (result.IsUpdateAvailable)
+                {
+                    logService.Audit($"启动检查发现新版本：{result.LatestVersion}，发布页：{result.ReleaseUrl}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logService.Warning($"启动后台更新检查失败：{ex.Message}");
             }
         });
     }
