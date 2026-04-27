@@ -124,7 +124,7 @@
 3. 生产签名：需要你准备代码签名证书，并在发布脚本或 GitHub Actions 中配置证书密钥。
 4. 生产安全：证书体系、自动密钥轮换、脚本执行审计、长期稳定性实测。
 
-推荐下一步：用 GitHub 创建 `v0.7.1` Release 验证一键管理员网络配置链路；随后补实机长稳测试、签名证书和是否需要 Wintun/TUN 的决策。
+推荐下一步：用 GitHub 创建 `v0.7.2` Release 验证一键管理员网络配置链路；随后补实机长稳测试、签名证书和是否需要 Wintun/TUN 的决策。
 
 ## 一键连接与端口占用处理
 
@@ -139,19 +139,21 @@
 3. 两台电脑连接同一个 WiFi。
 4. 主机 A 用网线连接硬件设备。
 5. 主机 A 打开简易模式，选择“这台电脑连接硬件设备（主机 A / 网关端）”。
-6. 主机 A 确认硬件设备 IP、端口、本机设备网口 IP、子网掩码和配对密钥。
+6. 主机 A 确认硬件设备 IP、端口、本机设备网口 IP 和子网掩码。简易模式会自动准备配对密钥。
 7. 主机 A 点击“配置网口并等待连接”。主机 A 只广播自身可用状态并监听连接，不主动搜索或连接其他电脑。
 8. 主机 B 打开简易模式，选择“这台电脑运行控制代码（主机 B / 调试端）”。
-9. 主机 B 填写与主机 A 相同的配对密钥，刷新并选择发现到的主机 A。
+9. 主机 B 刷新并选择发现到的主机 A，程序会自动完成配对，不需要复制粘贴密钥。
 10. 主机 B 点击“连接主机 A 并启动调试通道”。
 11. 完成后，主机 B 上的控制代码继续访问硬件设备 IP/端口，例如 `192.168.1.10:30003`。
 
 程序会在内部应用必要网络配置，但仍会展示操作预览、写入审计日志并保存可回滚记录。导出脚本仍然保留，但只作为高级调试和审计用途，不再是普通用户主流程。
 
+简易模式会通过局域网发现信息完成自动配对：主机 A 广播自动配对令牌，主机 B 选择主机 A 后自动派生 SharedKey，不需要手动复制粘贴。该流程面向可信 WiFi/LAN；如果在不可信网络中使用，请进入高级模式手动设置 SharedKey。
+
 当前处理逻辑：
 
-- 主机 A 配置网络后进入被动等待模式：检查 `DiscoveryPort` 和 `ProxyControlPort`，广播自身并监听主机 B 连接。
-- 主机 B 发起发现和连接：检查 `DiscoveryPort` 和 `LocalListenPort`，主动发现主机 A 并连接网关控制端口。
+- 主机 A 配置网络后进入被动等待模式：检查 `DiscoveryPort` 和 `ProxyControlPort`，广播自身、自动配对令牌并监听主机 B 连接。
+- 主机 B 发起发现和连接：检查 `DiscoveryPort` 和 `LocalListenPort`，主动发现主机 A，自动派生 SharedKey 并连接网关控制端口。
 - 如果端口空闲，流程直接继续。
 - 如果端口被本程序自身占用，例如发现服务已经启动，则允许继续。
 - 如果端口被其他程序占用，会尝试识别占用进程的 PID 和进程名。
@@ -221,15 +223,15 @@ cd "<你的项目目录>\RobotVirtualSubnetDebugger"
 
 发布产物：
 
-- 框架依赖版 zip：`artifacts\release\RobotNet.Windows.Wpf-0.7.1-win-x64-framework.zip`，目标电脑需要安装 .NET 8 Desktop Runtime。
-- 自包含单文件版：`artifacts\release\RobotNet.Windows.Wpf-0.7.1-win-x64-self-contained.exe`，体积较大，但不要求目标电脑预装 .NET 运行时。
+- 框架依赖版 zip：`artifacts\release\RobotNet.Windows.Wpf-0.7.2-win-x64-framework.zip`，目标电脑需要安装 .NET 8 Desktop Runtime。
+- 自包含单文件版：`artifacts\release\RobotNet.Windows.Wpf-0.7.2-win-x64-self-contained.exe`，体积较大，但不要求目标电脑预装 .NET 运行时。
 - 校验文件：`artifacts\release\checksums.sha256`。
 
 GitHub Release 流程：
 
 ```powershell
-git tag v0.7.1
-git push origin v0.7.1
+git tag v0.7.2
+git push origin v0.7.2
 ```
 
 `.github/workflows/release.yml` 会在 tag 推送后构建发布包并创建 GitHub Release。应用内更新页默认检查 `https://github.com/LONG10222/RobotVirtualSubnetDebugger/releases/latest`。
@@ -417,7 +419,7 @@ git push origin v0.7.1
 - 选择“这台电脑运行控制代码”。
 - 刷新并选择发现到的主机 A。
 - 确认硬件设备 IP、端口和本地监听端口。
-- 填写与主机 A 相同的配对密钥，点击“连接主机 A 并启动调试通道”。
+- 刷新并选择主机 A 后自动配对，点击“连接主机 A 并启动调试通道”。
 - 程序内部添加目标网段精确路由，并启动调试端服务。
 
 简易模式会显示操作预览、执行状态、执行日志，并提供“恢复网络配置”按钮。
@@ -475,7 +477,7 @@ git push origin v0.7.1
 
 - 监听 `127.0.0.1:LocalListenPort`。
 - 本机调试代码连接这个端口。
-- 程序使用 SharedKey、HMAC-SHA256 和 AES-GCM 把本地 TCP 连接转发到网关端 `GatewayLanIp:ProxyControlPort`。
+- 程序使用自动配对得到的 SharedKey、HMAC-SHA256 和 AES-GCM 把本地 TCP 连接转发到网关端 `GatewayLanIp:ProxyControlPort`。
 
 网关端：
 
@@ -515,7 +517,7 @@ git push origin v0.7.1
 
 第六阶段新增页面，用于检查 GitHub Releases、下载发布包和查看发布检查项。
 
-- 当前版本来自程序集版本，当前为 `0.7.1`。
+- 当前版本来自程序集版本，当前为 `0.7.2`。
 - 默认仓库为 `LONG10222/RobotVirtualSubnetDebugger`。
 - 点击“检查更新”会请求 GitHub latest release。
 - 点击“下载更新”会下载优先匹配的 Windows 发布包。
@@ -680,7 +682,8 @@ Services/CrashReporting/FileCrashReportService.cs
 | DiscoveryPort | `47831` |
 | LocalListenPort | `30003` |
 | ProxyControlPort | `47832` |
-| SharedKey | 空，需要用户生成或填写 |
+| SharedKey | 简易模式自动配对；高级模式可手动生成或填写 |
+| AutoPairingToken | 自动生成，用于局域网简易模式自动配对 |
 | ProxyHeartbeatIntervalSeconds | `5` |
 | ProxyIdleTimeoutSeconds | `20` |
 | ProxyReconnectAttempts | `2` |
@@ -745,6 +748,7 @@ dotnet build
 - Windows 优先实现，但接口设计要给 Linux/macOS 留出扩展空间。
 - 真正需要修改系统网络配置时，必须先给出操作预览，由用户在 UI 中点击确认，并生成可回滚记录。
 - 程序内部执行网络配置，不再要求普通用户手动打开管理员 PowerShell。
+- 简易模式自动配对令牌会通过局域网发现广播发送，只适合可信局域网；高级模式仍支持手动 SharedKey。
 
 ## WiFi、VPN 与正常上网共存原则
 

@@ -196,6 +196,7 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = _tunnelSessionService?.Current.IsConnected ?? false,
             ConnectedPeerDeviceId = _tunnelSessionService?.Current.PeerDeviceId ?? string.Empty,
             ConnectedPeerName = _tunnelSessionService?.Current.PeerDeviceName ?? string.Empty,
+            AutoPairingToken = config.Role == DeviceRole.GatewayAgent ? config.AutoPairingToken : string.Empty,
             Timestamp = DateTimeOffset.Now
         };
 
@@ -212,6 +213,7 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = message.IsBusy,
             ConnectedPeerDeviceId = message.ConnectedPeerDeviceId,
             ConnectedPeerName = message.ConnectedPeerName,
+            AutoPairingToken = message.AutoPairingToken,
             LastSeen = DateTimeOffset.Now,
             IsOnline = true
         });
@@ -239,6 +241,7 @@ public sealed class UdpDiscoveryService : IDiscoveryService
                 IsBusy = message.IsBusy,
                 ConnectedPeerDeviceId = message.ConnectedPeerDeviceId,
                 ConnectedPeerName = message.ConnectedPeerName,
+                AutoPairingToken = message.AutoPairingToken,
                 LastSeen = DateTimeOffset.Now,
                 IsOnline = true
             });
@@ -263,6 +266,7 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = _tunnelSessionService?.Current.IsConnected ?? false,
             ConnectedPeerDeviceId = _tunnelSessionService?.Current.PeerDeviceId ?? string.Empty,
             ConnectedPeerName = _tunnelSessionService?.Current.PeerDeviceName ?? string.Empty,
+            AutoPairingToken = config.Role == DeviceRole.GatewayAgent ? config.AutoPairingToken : string.Empty,
             LastSeen = DateTimeOffset.Now,
             IsOnline = true
         };
@@ -312,7 +316,8 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsOnline = device.IsOnline,
             IsBusy = device.IsBusy,
             ConnectedPeerDeviceId = device.ConnectedPeerDeviceId,
-            ConnectedPeerName = device.ConnectedPeerName
+            ConnectedPeerName = device.ConnectedPeerName,
+            AutoPairingToken = device.AutoPairingToken
         };
     }
 

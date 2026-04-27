@@ -78,14 +78,16 @@
                                  Margin="0,0,0,12"
                                  Text="{Binding TargetDevicePort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                        <TextBlock Text="配对密钥（两台电脑必须一致）" Style="{StaticResource DashboardLabelStyle}" />
+                        <TextBlock Text="自动配对密钥" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,8"
+                                 IsReadOnly="True"
                                  Text="{Binding SharedKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Height="34"
                                 Margin="0,0,0,12"
                                 Command="{Binding GenerateSharedKeyCommand}"
-                                Content="生成配对密钥" />
+                                Content="刷新自动配对密钥"
+                                Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                         <StackPanel Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Text="主机 A 设备网口 IP" Style="{StaticResource DashboardLabelStyle}" />

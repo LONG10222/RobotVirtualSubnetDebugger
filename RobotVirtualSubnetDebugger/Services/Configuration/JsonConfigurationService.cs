@@ -3,6 +3,7 @@ using System.Text.Json;
 using RobotNet.Windows.Wpf.Models;
 using RobotNet.Windows.Wpf.Services.Logging;
 using RobotNet.Windows.Wpf.Services.Platform;
+using RobotNet.Windows.Wpf.Utils;
 
 namespace RobotNet.Windows.Wpf.Services.Configuration;
 
@@ -104,6 +105,7 @@ public sealed class JsonConfigurationService : IConfigurationService
             EnableVirtualSubnetMode = true,
             VirtualIp = "192.168.1.101",
             VirtualSubnetMask = "255.255.255.0",
+            AutoPairingToken = PairingKeyDeriver.CreatePairingToken(),
             GitHubRepositoryOwner = DefaultGitHubRepositoryOwner,
             GitHubRepositoryName = DefaultGitHubRepositoryName,
             EnableUpdateCheckOnStartup = true
@@ -210,6 +212,12 @@ public sealed class JsonConfigurationService : IConfigurationService
         if (string.IsNullOrWhiteSpace(config.GitHubRepositoryName))
         {
             config.GitHubRepositoryName = DefaultGitHubRepositoryName;
+            updated = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.AutoPairingToken))
+        {
+            config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
             updated = true;
         }
 

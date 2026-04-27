@@ -23,5 +23,7 @@ public sealed class DiscoveryMessage
 
     public string ConnectedPeerName { get; set; } = string.Empty;
 
+    public string AutoPairingToken { get; set; } = string.Empty;
+
     public DateTimeOffset Timestamp { get; set; }
 }

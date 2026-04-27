@@ -382,6 +382,7 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
             GatewayLanIp = config.GatewayLanIp,
             TargetDeviceAdapterIp = config.TargetDeviceAdapterIp,
             SharedKey = config.SharedKey,
+            AutoPairingToken = config.AutoPairingToken,
             ProxyHeartbeatIntervalSeconds = config.ProxyHeartbeatIntervalSeconds,
             ProxyIdleTimeoutSeconds = config.ProxyIdleTimeoutSeconds,
             ProxyReconnectAttempts = config.ProxyReconnectAttempts,

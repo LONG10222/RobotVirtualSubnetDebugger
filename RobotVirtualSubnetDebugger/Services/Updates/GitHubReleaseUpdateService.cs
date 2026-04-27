@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
@@ -55,7 +55,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
             using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                result.Message = "GitHub Releases 暂无 latest 发布。请先在仓库发布 v0.7.1 或更高版本。";
+                result.Message = "GitHub Releases 暂无 latest 发布。请先在仓库发布 v0.7.2 或更高版本。";
                 _logService.Warning(result.Message);
                 return result;
             }

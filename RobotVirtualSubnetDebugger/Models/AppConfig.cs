@@ -30,6 +30,8 @@ public sealed class AppConfig
 
     public string SharedKey { get; set; } = string.Empty;
 
+    public string AutoPairingToken { get; set; } = string.Empty;
+
     public int ProxyHeartbeatIntervalSeconds { get; set; } = 5;
 
     public int ProxyIdleTimeoutSeconds { get; set; } = 20;

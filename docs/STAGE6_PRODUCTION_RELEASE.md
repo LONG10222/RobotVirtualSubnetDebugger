@@ -4,7 +4,7 @@
 
 ## 已完成范围
 
-- 应用版本号当前为 `0.7.1`。
+- 应用版本号当前为 `0.7.2`。
 - 新增 `发布与更新 Release` 页面。
 - 新增 GitHub Releases 更新检查。
 - 默认更新仓库：`LONG10222/RobotVirtualSubnetDebugger`。
@@ -75,8 +75,8 @@ artifacts\release
 
 主要文件：
 
-- `RobotNet.Windows.Wpf-0.7.1-win-x64-framework.zip`
-- `RobotNet.Windows.Wpf-0.7.1-win-x64-self-contained.exe`
+- `RobotNet.Windows.Wpf-0.7.2-win-x64-framework.zip`
+- `RobotNet.Windows.Wpf-0.7.2-win-x64-self-contained.exe`
 - `checksums.sha256`
 
 ## 代码签名
@@ -97,8 +97,8 @@ $env:SIGN_CERT_PASSWORD = "证书密码"
 推送标签即可触发 `.github/workflows/release.yml`：
 
 ```powershell
-git tag v0.7.1
-git push origin v0.7.1
+git tag v0.7.2
+git push origin v0.7.2
 ```
 
 GitHub Actions 会构建发布包，并创建 Release。应用内更新检查会读取该 Release。

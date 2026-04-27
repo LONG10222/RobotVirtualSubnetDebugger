@@ -58,7 +58,7 @@
                         <LineBreak />
                         <Run Text="7. 填写或确认主机 A 设备网口 IP，例如 192.168.1.100。" />
                         <LineBreak />
-                        <Run Text="8. 点击“生成配对密钥”，并把同一个密钥填到主机 B。" />
+                        <Run Text="8. 不需要复制粘贴密钥。简易模式会自动准备配对密钥。" />
                         <LineBreak />
                         <Run Text="9. 点击“配置网口并等待连接”。完成后主机 A 只广播自身可用状态并监听，不主动搜索或连接其他电脑。" />
                     </TextBlock>
@@ -76,15 +76,13 @@
                         <LineBreak />
                         <Run Text="3. 点击“这台电脑运行控制代码（主机 B / 调试端）”。" />
                         <LineBreak />
-                        <Run Text="4. 填写与主机 A 相同的配对密钥。" />
+                        <Run Text="4. 点击“刷新主机 A”，选择发现到的主机 A，程序会自动完成配对。" />
                         <LineBreak />
-                        <Run Text="5. 点击“刷新主机 A”，选择发现到的主机 A。" />
+                        <Run Text="5. 填写或确认硬件设备 IP 和端口，例如 192.168.1.10:30003。" />
                         <LineBreak />
-                        <Run Text="6. 填写或确认硬件设备 IP 和端口，例如 192.168.1.10:30003。" />
+                        <Run Text="6. 点击“连接主机 A 并启动调试通道”。" />
                         <LineBreak />
-                        <Run Text="7. 点击“连接主机 A 并启动调试通道”。" />
-                        <LineBreak />
-                        <Run Text="8. 完成后，你的控制代码继续访问硬件设备 IP/端口，流量会通过主机 A 转发。" />
+                        <Run Text="7. 完成后，你的控制代码继续访问硬件设备 IP/端口，流量会通过主机 A 转发。" />
                     </TextBlock>
 
                     <TextBlock Text="四、使用设备发现"
@@ -112,7 +110,7 @@
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="1. 两台电脑都配置相同的 SharedKey。" />
+                        <Run Text="1. 简易模式会自动配对 SharedKey；高级模式仍可以手动配置相同 SharedKey。" />
                         <LineBreak />
                         <Run Text="2. 网关端打开“TCP 代理 Proxy”，启动网关端监听。" />
                         <LineBreak />

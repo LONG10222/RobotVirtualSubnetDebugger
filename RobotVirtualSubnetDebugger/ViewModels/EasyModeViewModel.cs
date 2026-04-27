@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Security.Cryptography;
 using System.Windows;
 using RobotNet.Windows.Wpf.Commands;
 using RobotNet.Windows.Wpf.Models;
@@ -122,6 +121,7 @@ public sealed class EasyModeViewModel : ObservableObject
             if (SetProperty(ref _selectedGateway, value) && value is not null)
             {
                 GatewayLanIp = value.LanIp;
+                TryUseAutoPairing(value);
             }
         }
     }
@@ -266,12 +266,7 @@ public sealed class EasyModeViewModel : ObservableObject
         var config = BuildConfigFromInput();
         config.Role = DeviceRole.GatewayAgent;
         SelectedRole = DeviceRole.GatewayAgent;
-        if (string.IsNullOrWhiteSpace(config.SharedKey))
-        {
-            GenerateSharedKey();
-            config.SharedKey = SharedKey.Trim();
-            Status = "已为主机 A 生成配对密钥，请把同一个密钥填到主机 B。";
-        }
+        EnsureGatewayAutoPairingKey(config);
 
         ExecutionLogs.Clear();
         if (!EnsurePortsReady(config))
@@ -308,10 +303,17 @@ public sealed class EasyModeViewModel : ObservableObject
         var config = BuildConfigFromInput();
         config.Role = DeviceRole.DebugClient;
         SelectedRole = DeviceRole.DebugClient;
+        if (SelectedGateway is not null)
+        {
+            TryUseAutoPairing(SelectedGateway);
+            config.SharedKey = SharedKey.Trim();
+            config.GatewayLanIp = GatewayLanIp.Trim();
+        }
+
         if (string.IsNullOrWhiteSpace(config.SharedKey))
         {
             ApplyStatus = NetworkConfigurationApplyStatus.Failed;
-            Status = "请先填写与主机 A 相同的配对密钥，再连接主机 A。";
+            Status = "未获取到自动配对密钥。请先刷新并选择主机 A，或到高级模式手动填写 SharedKey。";
             return;
         }
 
@@ -438,9 +440,13 @@ public sealed class EasyModeViewModel : ObservableObject
 
     private void GenerateSharedKey()
     {
-        SharedKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        Status = "已生成配对密钥。请把同一个密钥填到另一台电脑。";
-        _logService.Audit("简易模式已生成新的配对密钥，密钥内容未写入日志。");
+        var config = _configurationService.Load();
+        config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
+        config.SharedKey = PairingKeyDeriver.DeriveSharedKey(config.DeviceId, config.AutoPairingToken);
+        _configurationService.Save(config);
+        SharedKey = config.SharedKey;
+        Status = "已刷新自动配对密钥。主机 B 重新发现主机 A 后会自动获取，无需复制粘贴。";
+        _logService.Audit("简易模式已刷新自动配对令牌，令牌和密钥内容未写入日志。");
     }
 
     private void LoadFromConfig()
@@ -463,6 +469,43 @@ public sealed class EasyModeViewModel : ObservableObject
             ApplyStatus = lastRecord.Status;
             Status = $"上次配置状态：{ApplyStatusText}，时间 {lastRecord.AppliedAt?.LocalDateTime:yyyy-MM-dd HH:mm:ss}。";
         }
+    }
+
+    private void EnsureGatewayAutoPairingKey(AppConfig config)
+    {
+        var changed = false;
+        if (string.IsNullOrWhiteSpace(config.AutoPairingToken))
+        {
+            config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
+            changed = true;
+        }
+
+        var derivedSharedKey = PairingKeyDeriver.DeriveSharedKey(config.DeviceId, config.AutoPairingToken);
+        if (string.IsNullOrWhiteSpace(config.SharedKey) || !string.Equals(config.SharedKey, derivedSharedKey, StringComparison.Ordinal))
+        {
+            config.SharedKey = derivedSharedKey;
+            SharedKey = derivedSharedKey;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            _configurationService.Save(config);
+            _logService.Audit("网关端已准备自动配对密钥，密钥内容未写入日志。");
+        }
+    }
+
+    private void TryUseAutoPairing(DeviceInfo gateway)
+    {
+        if (!gateway.SupportsAutoPairing)
+        {
+            Status = "该主机 A 暂未提供自动配对信息，请刷新发现列表或使用高级模式手动 SharedKey。";
+            return;
+        }
+
+        SharedKey = PairingKeyDeriver.DeriveSharedKey(gateway.DeviceId, gateway.AutoPairingToken);
+        Status = $"已与 {gateway.ComputerName} 自动配对，无需手动复制密钥。";
+        _logService.Audit($"已从发现信息完成自动配对：Gateway={gateway.ComputerName}({gateway.DeviceId})。");
     }
 
     private void DetectAdapters()
