@@ -102,3 +102,7 @@ dotnet run --project ./RobotVirtualSubnetDebugger/RobotVirtualSubnetDebugger.csp
 现有 `.github/workflows/release.yml` 在 `v*` 标签推送或手动触发时构建；标签触发会创建 GitHub Release。它不是 PR 自动测试流程，不应为了验证编译随意推标签或把未经实机验证的包标作稳定生产版。后续增加 CI 时，也应保留每项检查的环境与未覆盖范围。
 
 相关设计文档：`docs/PHASE_ROADMAP.md`、`docs/STAGE3_TCP_PROXY_DESIGN.md`、`docs/STAGE4_SECURITY_STABILITY.md`、`docs/STAGE5_VIRTUAL_SUBNET_DESIGN.md`、`docs/STAGE6_PRODUCTION_RELEASE.md`。这些阶段文档中若有旧版自动配对或“完成率”描述，不应作为当前能力验收依据；以当前源码、本文边界与可复核测试证据为准。
+
+## 法奥资料配置预览
+
+高级设置可填入法奥 SDK 示例参数，仍需核对现场地址并手动保存；不会自动修改网络或运行机械臂。参见 [法奥原 IP 连接说明](docs/FAIRINO_ORIGINAL_IP.md)。

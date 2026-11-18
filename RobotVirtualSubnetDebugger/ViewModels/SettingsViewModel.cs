@@ -74,6 +74,7 @@ public sealed class SettingsViewModel : ObservableObject
         EnableUpdateCheckOnStartup = _config.EnableUpdateCheckOnStartup;
 
         SaveCommand = new RelayCommand(Save);
+        PreviewFairinoProfileCommand = new RelayCommand(PreviewFairinoProfile);
         GenerateSharedKeyCommand = new RelayCommand(GenerateSharedKey);
     }
 
@@ -86,6 +87,8 @@ public sealed class SettingsViewModel : ObservableObject
     public ObservableCollection<RoleOptionViewModel> RoleOptions { get; }
 
     public RelayCommand SaveCommand { get; }
+
+    public RelayCommand PreviewFairinoProfileCommand { get; }
 
     public RelayCommand GenerateSharedKeyCommand { get; }
 
@@ -219,6 +222,19 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _saveMessage;
         private set => SetProperty(ref _saveMessage, value);
+    }
+
+    private void PreviewFairinoProfile()
+    {
+        // Explicit UI preview only: never save or touch network adapters here.
+        TargetDeviceIp = "192.168.57.2";
+        TargetDevicePort = 20003; // Primary SDK RPC port, NOT the full SDK connection set.
+        VirtualSubnetMask = "255.255.255.0";
+        EnableVirtualSubnetMode = true;
+        EnablePreciseRoute = true;
+        EnableNat = true;
+        EnableTcpProxyMode = false;
+        SaveMessage = "已填入法奥资料参数，尚未保存或应用。SDK使用TCP 20003/20004/8080，单端口本地代理不能替代原IP连接。请核对实际机器人IP和A/B网卡地址；电脑不可也设为192.168.57.2。";
     }
 
     private void Save()

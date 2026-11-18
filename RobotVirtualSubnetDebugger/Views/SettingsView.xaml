@@ -15,6 +15,11 @@
                            Style="{StaticResource PageSubtitleStyle}" />
             </StackPanel>
 
+            <Button DockPanel.Dock="Right" Width="210" Height="36" Margin="16,6,0,0"
+                    Command="{Binding PreviewFairinoProfileCommand}"
+                    Content="填入法奥资料参数（未保存）"
+                    ToolTip="仅填入资料示例，不保存、不应用网络设置；实际IP需核对。" />
+
             <Button DockPanel.Dock="Right"
                     Width="120"
                     Height="36"

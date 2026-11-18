@@ -56,6 +56,22 @@ using(var next=NetworkOperationLock.Acquire(dir)) {Check(next.CanWrite,"operatio
 Check(File.Exists(Path.Combine(dir,"network-operation.lock")),"lock file retained to prevent rename/delete race");
 }finally {Directory.Delete(dir,true);}
 }
+static void FairinoTests(){
+var cfg=C(DeviceRole.DebugClient);cfg.GatewayLanIp="10.20.0.1";cfg.TargetDeviceAdapterIp="192.168.57.100";cfg.SharedKey="unchanged-test-key";
+var service=new MockConfig(cfg);var vm=new RobotNet.Windows.Wpf.ViewModels.SettingsViewModel(service,new Log());
+vm.PreviewFairinoProfileCommand.Execute(null);
+Check(service.Saves==0 && cfg.TargetDeviceIp=="192.168.1.10","Fairino preset changes preview only, never saves or touches network");
+Check(vm.TargetDeviceIp=="192.168.57.2" && vm.TargetDevicePort==20003 && !vm.EnableTcpProxyMode,"Fairino preview preserves documented target and selects route/NAT not single-port proxy");
+Check(vm.GatewayLanIp=="10.20.0.1" && vm.TargetDeviceAdapterIp=="192.168.57.100" && vm.SharedKey=="unchanged-test-key","Fairino preset never invents or overwrites LAN credentials/address");
+Check(vm.SaveMessage.Contains("20003/20004/8080") && vm.SaveMessage.Contains("不可也设"),"Fairino preview warns of multiport and duplicate-IP hazard");
+var b=C(DeviceRole.DebugClient);b.TargetDeviceIp="192.168.57.2";b.EnableTcpProxyMode=false;
+var bp=Plan(b,Ad("B-LAN","192.168.31.30",true));
+Check(bp.CanGenerateScripts && bp.TargetSubnetCidr=="192.168.57.2/32","documented Fairino target produces unchanged /32 route");
+var a=C(DeviceRole.GatewayAgent);a.TargetDeviceIp="192.168.57.2";a.TargetDeviceAdapterIp="192.168.57.100";a.EnableTcpProxyMode=false;
+Check(Plan(a,Ad("A-LAN","192.168.31.20",true),Ad("Robot","192.168.57.100")).CanGenerateScripts,"Fairino dual-NIC route/NAT plan accepted with distinct local IP");
+a.TargetDeviceAdapterIp="192.168.57.2";
+Check(!Plan(a,Ad("A-LAN","192.168.31.20",true),Ad("Robot","192.168.57.2")).CanGenerateScripts,"unsafe tutorial duplicate robot/local IP rejected");
+}
 static void Main(string[] args){
 if(args.Length==2 && args[0]=="--lock-probe") {try {using var probe=NetworkOperationLock.Acquire(args[1]);Environment.Exit(0);}catch(IOException){Environment.Exit(23);}return;}
 
@@ -102,6 +118,7 @@ var badTarget=C(DeviceRole.DebugClient);badTarget.TargetDeviceIp="192.168.1.255"
 Check(!Plan(badTarget,Ad("LAN","192.168.31.30",true)).CanGenerateScripts,"broadcast robot target blocked for B too");
 TransactionTests();
 PersistenceTests();
+FairinoTests();
 LockTests();
 var mockPlan=new VirtualSubnetPlan{TargetSubnetCidr="192.168.1.10/32"};
 mockPlan.Steps.Add(new(){Order=1,Command="$global:trace += 'forward'",RollbackCommand="$global:trace += 'restore'"});
@@ -118,3 +135,6 @@ class Priv:IPrivilegeService{public bool IsRunningAsAdministrator()=>true;public
 class Log:ILogService{public event EventHandler<string>? EntryAdded;public string LogFilePath=>"";public void Info(string m){}public void Warning(string m){}public void Error(string m,Exception? e=null){}public void Audit(string m){}public IReadOnlyList<string> GetLogs()=>[];}
 
 class Admin:IAdminElevationService{public bool IsReadOnlyMode=>false;public PlatformOperationResult CheckAdminPrivilege()=>new(){Status=DiagnosticStatus.Success};public AdminElevationResult EnsureRunningAsAdmin(string[] args)=>new();}
+
+class MockConfig(AppConfig cfg):RobotNet.Windows.Wpf.Services.Configuration.IConfigurationService{
+public int Saves;public AppConfig Load()=>cfg;public void Save(AppConfig c){Saves++;}public AppConfig CreateDefault()=>new();}

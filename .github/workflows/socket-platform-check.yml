@@ -52,6 +52,11 @@ jobs:
         run: |
           dotnet build RobotVirtualSubnetDebugger/RobotVirtualSubnetDebugger.csproj --configuration Release --no-incremental
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Configuration and FAIRINO preview regression tests (no network changes)
+        shell: pwsh
+        run: |
+          dotnet run --configuration Release --project tests/Test.csproj
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build tests against actual production proxy sources
         shell: pwsh
         run: |
