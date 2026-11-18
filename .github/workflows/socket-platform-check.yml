@@ -1,0 +1,69 @@
+name: Windows and macOS socket validation
+
+on:
+  pull_request:
+    paths:
+      - 'RobotVirtualSubnetDebugger/**'
+      - 'tests/SocketPlatformChecks/**'
+      - '.github/workflows/socket-platform-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: socket-platform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+  SOURCE_REVISION: ${{ github.sha }}
+
+jobs:
+  socket-checks:
+    # Standard public-repository runners only. No larger runners, artifacts, caches,
+    # external services, secrets, publishing, deployment, or network configuration.
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [windows-2022, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified official tag
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4, verified official tag
+        with:
+          dotnet-version: '8.0.428'
+      - name: Record runtime and tested revision
+        shell: pwsh
+        run: |
+          Write-Output "Source revision: $env:SOURCE_REVISION"
+          dotnet --info
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build Windows WPF application (do not launch or elevate)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet build RobotVirtualSubnetDebugger/RobotVirtualSubnetDebugger.csproj --configuration Release --no-incremental
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build tests against actual production proxy sources
+        shell: pwsh
+        run: |
+          dotnet build tests/SocketPlatformChecks/SocketPlatformChecks.csproj --configuration Release --no-incremental
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Real local TCP authentication, policy, timeout and half-close tests
+        shell: pwsh
+        run: |
+          dotnet run --no-build --configuration Release --project tests/SocketPlatformChecks/SocketPlatformChecks.csproj
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Repeat fragmented 1 MiB half-close 25 times
+        shell: pwsh
+        run: |
+          dotnet run --no-build --configuration Release --project tests/SocketPlatformChecks/SocketPlatformChecks.csproj -- --stress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

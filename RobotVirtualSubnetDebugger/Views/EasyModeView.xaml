@@ -78,7 +78,7 @@
                                  Margin="0,0,0,12"
                                  Text="{Binding TargetDevicePort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                        <TextBlock Text="自动配对密钥" Style="{StaticResource DashboardLabelStyle}" />
+                        <TextBlock Text="共享密钥（可信渠道复制）" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,8"
                                  IsReadOnly="True"
@@ -86,7 +86,7 @@
                         <Button Height="34"
                                 Margin="0,0,0,12"
                                 Command="{Binding GenerateSharedKeyCommand}"
-                                Content="刷新自动配对密钥"
+                                Content="刷新共享密钥（可信渠道复制）"
                                 Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                         <StackPanel Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}">

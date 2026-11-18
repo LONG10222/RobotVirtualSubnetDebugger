@@ -2,6 +2,9 @@ namespace RobotNet.Windows.Wpf.Models;
 
 public sealed class NetworkOperationRecord
 {
+    // Legacy records have no ownership receipts and must never execute destructive rollback.
+    public int RollbackSchemaVersion { get; set; }
+
     public string OperationId { get; set; } = Guid.NewGuid().ToString("N");
 
     public DeviceRole Role { get; set; }

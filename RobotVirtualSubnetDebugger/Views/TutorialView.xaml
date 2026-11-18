@@ -110,7 +110,7 @@
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="1. 简易模式会自动配对 SharedKey；高级模式仍可以手动配置相同 SharedKey。" />
+                        <Run Text="1. 请通过可信渠道将主机 A 的 SharedKey 复制到主机 B。设备发现不传输密钥；双方升级后重新配对。" />
                         <LineBreak />
                         <Run Text="2. 网关端打开“TCP 代理 Proxy”，启动网关端监听。" />
                         <LineBreak />

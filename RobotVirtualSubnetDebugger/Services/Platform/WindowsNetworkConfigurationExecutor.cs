@@ -43,7 +43,30 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
         return _virtualSubnetService.BuildPlan(copy);
     }
 
-    public async Task<NetworkConfigurationExecutionResult> ApplyGatewayConfigurationAsync(AppConfig config)
+    public Task<NetworkConfigurationExecutionResult> ApplyGatewayConfigurationAsync(AppConfig config) =>
+        WithOperationLockAsync(() => ApplyGatewayCoreAsync(config));
+
+    public Task<NetworkConfigurationExecutionResult> ApplyClientConfigurationAsync(AppConfig config) =>
+        WithOperationLockAsync(() => ApplyClientCoreAsync(config));
+
+    public Task<NetworkConfigurationExecutionResult> RollbackLastConfigurationAsync() =>
+        WithOperationLockAsync(RollbackLastCoreAsync);
+
+    private static async Task<NetworkConfigurationExecutionResult> WithOperationLockAsync(
+        Func<Task<NetworkConfigurationExecutionResult>> operation)
+    {
+        System.IO.FileStream operationLock;
+        try { operationLock = NetworkOperationLock.Acquire(); }
+        catch (Exception ex)
+        {
+            return new() { Success = false, Status = NetworkConfigurationApplyStatus.Failed,
+                Message = "另一项网络操作正在运行，或无法获得操作锁。本次未执行，请勿同时运行多份程序或脚本。",
+                Error = ex.Message };
+        }
+        using (operationLock) { return await operation().ConfigureAwait(false); }
+    }
+
+    private async Task<NetworkConfigurationExecutionResult> ApplyGatewayCoreAsync(AppConfig config)
     {
         var copy = CloneForRole(config, DeviceRole.GatewayAgent);
         var plan = _virtualSubnetService.BuildPlan(copy);
@@ -60,7 +83,7 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
         return result;
     }
 
-    public async Task<NetworkConfigurationExecutionResult> ApplyClientConfigurationAsync(AppConfig config)
+    private async Task<NetworkConfigurationExecutionResult> ApplyClientCoreAsync(AppConfig config)
     {
         var copy = CloneForRole(config, DeviceRole.DebugClient);
         var plan = _virtualSubnetService.BuildPlan(copy);
@@ -77,9 +100,11 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
         return result;
     }
 
-    public async Task<NetworkConfigurationExecutionResult> RollbackLastConfigurationAsync()
+    private async Task<NetworkConfigurationExecutionResult> RollbackLastCoreAsync()
     {
-        var record = _rollbackService.LoadLastOperation();
+        NetworkOperationRecord? record;
+        try { record = _rollbackService.LoadLastOperation(); }
+        catch (Exception ex) { return new() { Success = false, Status = NetworkConfigurationApplyStatus.Failed, Message = ex.Message, Error = ex.Message }; }
         if (record is null || record.RollbackCommands.Count == 0)
         {
             return new NetworkConfigurationExecutionResult
@@ -88,6 +113,16 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
                 Status = NetworkConfigurationApplyStatus.Failed,
                 Message = "没有可回滚的网络配置记录。",
                 Error = "没有可回滚的网络配置记录。"
+            };
+        }
+
+        if (record.RollbackSchemaVersion != 1)
+        {
+            return new NetworkConfigurationExecutionResult
+            {
+                Success = false, Status = NetworkConfigurationApplyStatus.Failed,
+                Message = "旧版本记录没有资源归属收据，已阻止自动回滚。请人工核对，避免删除原有网络配置。",
+                Error = "Unsafe legacy rollback record."
             };
         }
 
@@ -112,10 +147,8 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
         try
         {
             AddLog(result, $"开始回滚：{record.OperationId}");
-            foreach (var command in record.RollbackCommands.AsEnumerable().Reverse())
-            {
-                await ExecutePowerShellAsync(command, result.Logs).ConfigureAwait(false);
-            }
+            await NetworkApplyTransaction.RollbackAsync(record.RollbackCommands.AsEnumerable().Reverse(),
+                command => ExecutePowerShellAsync(command, result.Logs)).ConfigureAwait(false);
 
             record.ExecutionLog.AddRange(result.Logs);
             _rollbackService.SaveRollback(record);
@@ -130,7 +163,8 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
             result.Success = false;
             result.Status = NetworkConfigurationApplyStatus.Failed;
             result.Error = ex.Message;
-            result.Message = $"回滚失败：{ex.Message}";
+            result.Message = $"回滚不完整，已尝试其余步骤，请检查凭据：{ex.Message}";
+            record.Status = NetworkConfigurationApplyStatus.Failed;
             record.LastError = ex.Message;
             record.ExecutionLog.AddRange(result.Logs);
             _rollbackService.SaveOperation(record);
@@ -212,10 +246,7 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
             return result;
         }
 
-        var commands = plan.Steps
-            .Where(step => step.WillModifySystem && !string.IsNullOrWhiteSpace(step.Command) && step.Command != "无")
-            .OrderBy(step => step.Order)
-            .ToList();
+        var commands = WindowsVirtualSubnetService.GetApplySteps(plan);
 
         var validationError = ValidateCommands(commands);
         if (!string.IsNullOrWhiteSpace(validationError))
@@ -227,8 +258,26 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
             return result;
         }
 
+        NetworkOperationRecord? previous;
+        try { previous = _rollbackService.LoadLastOperation(); }
+        catch (Exception ex)
+        {
+            result.Success = false; result.Status = NetworkConfigurationApplyStatus.Failed;
+            result.Error = ex.Message; result.Message = ex.Message;
+            return result;
+        }
+        if (previous is not null &&
+            previous.Status != NetworkConfigurationApplyStatus.RolledBack)
+        {
+            result.Status = NetworkConfigurationApplyStatus.Failed;
+            result.Message = "上次网络配置尚未回滚。请先回滚或人工核对，不能覆盖其恢复记录。";
+            result.Error = result.Message;
+            return result;
+        }
+
         var record = new NetworkOperationRecord
         {
+            RollbackSchemaVersion = 1,
             Role = config.Role,
             TargetSubnetCidr = plan.TargetSubnetCidr,
             GatewayLanIp = config.GatewayLanIp,
@@ -244,12 +293,15 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
 
         try
         {
+            // Persist the receipt-guarded undo plan before any mutation, including partial failures.
+            _rollbackService.SaveOperation(record);
             AddLog(result, $"开始应用{operationName}：{plan.Summary}");
-            foreach (var step in commands)
-            {
-                AddLog(result, $"执行：{step.Name}");
-                await ExecutePowerShellAsync(step.Command, result.Logs).ConfigureAwait(false);
-            }
+            await NetworkApplyTransaction.ExecuteAsync(commands,
+                command => ExecutePowerShellAsync(command, result.Logs),
+                complete => {
+                    record.Status = complete ? NetworkConfigurationApplyStatus.RolledBack : NetworkConfigurationApplyStatus.Failed;
+                    AddLog(result, complete ? "失败后已完成本次操作的凭据保护回滚。" : "自动回滚不完整，请检查操作凭据，勿继续应用。");
+                }).ConfigureAwait(false);
 
             record.Status = NetworkConfigurationApplyStatus.Applied;
             record.AppliedAt = DateTimeOffset.Now;
@@ -263,7 +315,8 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
         }
         catch (Exception ex)
         {
-            record.Status = NetworkConfigurationApplyStatus.Failed;
+            if (record.Status != NetworkConfigurationApplyStatus.RolledBack)
+                record.Status = NetworkConfigurationApplyStatus.Failed;
             record.LastError = ex.Message;
             record.ExecutionLog.AddRange(result.Logs);
             _rollbackService.SaveOperation(record);
@@ -383,6 +436,7 @@ public sealed class WindowsNetworkConfigurationExecutor : INetworkConfigurationE
             TargetDeviceAdapterIp = config.TargetDeviceAdapterIp,
             SharedKey = config.SharedKey,
             AutoPairingToken = config.AutoPairingToken,
+            PairingSecurityVersion = config.PairingSecurityVersion,
             ProxyHeartbeatIntervalSeconds = config.ProxyHeartbeatIntervalSeconds,
             ProxyIdleTimeoutSeconds = config.ProxyIdleTimeoutSeconds,
             ProxyReconnectAttempts = config.ProxyReconnectAttempts,

@@ -22,7 +22,7 @@ public sealed class DeviceInfo
 
     public string AutoPairingToken { get; set; } = string.Empty;
 
-    public bool SupportsAutoPairing => Role == DeviceRole.GatewayAgent && !string.IsNullOrWhiteSpace(AutoPairingToken);
+    public bool SupportsAutoPairing => false;
 
     public string RoleText => Role switch
     {

@@ -313,7 +313,7 @@ public sealed class EasyModeViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(config.SharedKey))
         {
             ApplyStatus = NetworkConfigurationApplyStatus.Failed;
-            Status = "未获取到自动配对密钥。请先刷新并选择主机 A，或到高级模式手动填写 SharedKey。";
+            Status = "尚未配置共享密钥。请通过可信渠道将主机 A 的 SharedKey 复制到本页密钥栏。";
             return;
         }
 
@@ -441,12 +441,13 @@ public sealed class EasyModeViewModel : ObservableObject
     private void GenerateSharedKey()
     {
         var config = _configurationService.Load();
-        config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
-        config.SharedKey = PairingKeyDeriver.DeriveSharedKey(config.DeviceId, config.AutoPairingToken);
+        config.AutoPairingToken = string.Empty;
+        config.PairingSecurityVersion = 1;
+        config.SharedKey = PairingKeyDeriver.CreateSharedKey();
         _configurationService.Save(config);
         SharedKey = config.SharedKey;
-        Status = "已刷新自动配对密钥。主机 B 重新发现主机 A 后会自动获取，无需复制粘贴。";
-        _logService.Audit("简易模式已刷新自动配对令牌，令牌和密钥内容未写入日志。");
+        Status = "已生成新共享密钥。请通过可信渠道复制到主机 B；密钥不会在局域网广播。";
+        _logService.Audit("简易模式已刷新共享密钥，密钥内容未写入日志。");
     }
 
     private void LoadFromConfig()
@@ -473,39 +474,21 @@ public sealed class EasyModeViewModel : ObservableObject
 
     private void EnsureGatewayAutoPairingKey(AppConfig config)
     {
-        var changed = false;
-        if (string.IsNullOrWhiteSpace(config.AutoPairingToken))
+        if (string.IsNullOrWhiteSpace(config.SharedKey))
         {
-            config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
-            changed = true;
-        }
-
-        var derivedSharedKey = PairingKeyDeriver.DeriveSharedKey(config.DeviceId, config.AutoPairingToken);
-        if (string.IsNullOrWhiteSpace(config.SharedKey) || !string.Equals(config.SharedKey, derivedSharedKey, StringComparison.Ordinal))
-        {
-            config.SharedKey = derivedSharedKey;
-            SharedKey = derivedSharedKey;
-            changed = true;
-        }
-
-        if (changed)
-        {
+            config.SharedKey = PairingKeyDeriver.CreateSharedKey();
+            config.PairingSecurityVersion = 1;
+            config.AutoPairingToken = string.Empty;
+            SharedKey = config.SharedKey;
             _configurationService.Save(config);
-            _logService.Audit("网关端已准备自动配对密钥，密钥内容未写入日志。");
+            _logService.Audit("网关端已生成共享密钥，请通过可信渠道配对；密钥未写入日志。");
         }
     }
 
     private void TryUseAutoPairing(DeviceInfo gateway)
     {
-        if (!gateway.SupportsAutoPairing)
-        {
-            Status = "该主机 A 暂未提供自动配对信息，请刷新发现列表或使用高级模式手动 SharedKey。";
-            return;
-        }
-
-        SharedKey = PairingKeyDeriver.DeriveSharedKey(gateway.DeviceId, gateway.AutoPairingToken);
-        Status = $"已与 {gateway.ComputerName} 自动配对，无需手动复制密钥。";
-        _logService.Audit($"已从发现信息完成自动配对：Gateway={gateway.ComputerName}({gateway.DeviceId})。");
+        // Discovery is unauthenticated and must never set credentials.
+        Status = $"已发现 {gateway.ComputerName}。请确认身份并填写主机 A 的 SharedKey；广播自动配对已停用。";
     }
 
     private void DetectAdapters()

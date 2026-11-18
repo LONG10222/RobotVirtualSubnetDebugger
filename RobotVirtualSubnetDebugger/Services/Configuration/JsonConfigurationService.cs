@@ -105,7 +105,8 @@ public sealed class JsonConfigurationService : IConfigurationService
             EnableVirtualSubnetMode = true,
             VirtualIp = "192.168.1.101",
             VirtualSubnetMask = "255.255.255.0",
-            AutoPairingToken = PairingKeyDeriver.CreatePairingToken(),
+            AutoPairingToken = string.Empty,
+            PairingSecurityVersion = 1,
             GitHubRepositoryOwner = DefaultGitHubRepositoryOwner,
             GitHubRepositoryName = DefaultGitHubRepositoryName,
             EnableUpdateCheckOnStartup = true
@@ -215,9 +216,18 @@ public sealed class JsonConfigurationService : IConfigurationService
             updated = true;
         }
 
-        if (string.IsNullOrWhiteSpace(config.AutoPairingToken))
+        // Legacy debug clients do not retain the gateway token. Retire all v0 keys.
+        if (config.PairingSecurityVersion < 1)
         {
-            config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
+            config.SharedKey = config.Role == DeviceRole.GatewayAgent
+                ? PairingKeyDeriver.CreateSharedKey() : string.Empty;
+            config.PairingSecurityVersion = 1;
+            updated = true;
+            _logService.Warning("旧版广播自动配对已停用。请通过可信渠道将主机 A 的新 SharedKey 复制到主机 B，双方升级后再连接。");
+        }
+        if (!string.IsNullOrEmpty(config.AutoPairingToken))
+        {
+            config.AutoPairingToken = string.Empty;
             updated = true;
         }
 

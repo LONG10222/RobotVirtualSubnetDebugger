@@ -17,7 +17,12 @@ public sealed class SafeTcpProxyService : ITcpProxyService
     private const string GatewayBindAddress = "0.0.0.0";
     private const int ConnectTimeoutMs = 5000;
     private const int MinSharedKeyLength = 8;
+    internal const int MaxConcurrentConnections = 64;
+    private readonly SemaphoreSlim _connectionSlots = new(MaxConcurrentConnections, MaxConcurrentConnections);
     private const int MaxControlLineBytes = 512 * 1024;
+    private const int MaxNonceLength = 128;
+    // Fail closed rather than evicting live entries and reopening replay windows.
+    private const int MaxRememberedNonces = 131072;
     private const int DataFrameBufferSize = 16 * 1024;
     private const int AesGcmNonceSize = 12;
     private const int AesGcmTagSize = 16;
@@ -29,6 +34,7 @@ public sealed class SafeTcpProxyService : ITcpProxyService
     private readonly ILogService _logService;
     private readonly object _syncRoot = new();
     private readonly Dictionary<string, DateTimeOffset> _recentNonces = [];
+    private readonly Queue<(string Nonce, DateTimeOffset RememberedAt)> _nonceExpiry = [];
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
     private TcpProxySessionInfo _current = new();
     private TcpListener? _listener;
@@ -304,7 +310,26 @@ public sealed class SafeTcpProxyService : ITcpProxyService
                 break;
             }
 
-            _ = Task.Run(() => HandleClientAsync(client, cancellationToken), cancellationToken);
+            // Do not queue unbounded unauthenticated connections. Close excess sockets.
+            if (!_connectionSlots.Wait(0))
+            {
+                client.Dispose();
+                continue;
+            }
+            // Never pass the cancellation token to Task.Run: cancellation before dispatch
+            // would skip cleanup and leak both the accepted socket and its slot.
+            _ = RunAdmittedClientAsync(client, cancellationToken);
+        }
+    }
+
+    private async Task RunAdmittedClientAsync(TcpClient client, CancellationToken cancellationToken)
+    {
+        try { await HandleClientAsync(client, cancellationToken).ConfigureAwait(false); }
+        catch (Exception ex) { _logService.Error("代理连接处理失败。", ex); }
+        finally
+        {
+            client.Dispose();
+            _connectionSlots.Release();
         }
     }
 
@@ -347,7 +372,7 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             };
 
             await SendFrameAsync(gatewayStream, openMessage, context, cancellationToken);
-            var result = await ReadVerifiedMessageAsync(gatewayStream, options.SharedKey, context.SessionToken, cancellationToken);
+            var result = await ReadHandshakeAsync(gatewayStream, options, context.SessionToken, cancellationToken);
             if (result.MessageType != TcpProxyMessageType.OpenConnectionResult || !result.Success)
             {
                 var error = string.IsNullOrWhiteSpace(result.ErrorMessage)
@@ -403,7 +428,7 @@ public sealed class SafeTcpProxyService : ITcpProxyService
         try
         {
             controlStream = controlClient.GetStream();
-            var openMessage = await ReadVerifiedMessageAsync(controlStream, options.SharedKey, expectedSessionToken: null, cancellationToken);
+            var openMessage = await ReadHandshakeAsync(controlStream, options, expectedSessionToken: null, cancellationToken);
             connectionId = string.IsNullOrWhiteSpace(openMessage.ConnectionId)
                 ? Guid.NewGuid().ToString("N")[..8]
                 : openMessage.ConnectionId;
@@ -415,8 +440,9 @@ public sealed class SafeTcpProxyService : ITcpProxyService
                 return;
             }
 
-            var targetHost = string.IsNullOrWhiteSpace(openMessage.TargetHost) ? _current.TargetDeviceIp : openMessage.TargetHost;
-            var targetPort = openMessage.TargetPort > 0 ? openMessage.TargetPort : _current.TargetDevicePort;
+            var (targetHost, targetPort) = GatewayTargetPolicy.Authorize(
+                options.TargetDeviceIp, options.TargetDevicePort,
+                openMessage.TargetHost, openMessage.TargetPort);
 
             _logService.Audit($"网关端认证通过：ConnectionId={connectionId}，Target={targetHost}:{targetPort}");
             targetClient = await ConnectWithRetryAsync(
@@ -481,26 +507,57 @@ public sealed class SafeTcpProxyService : ITcpProxyService
         SetLastInboundFrameTime(context);
 
         var plainToFrames = CopyPlainToFramesAsync(plainStream, framedStream, context, token);
-        var framesToPlain = CopyFramesToPlainAsync(framedStream, plainStream, context, token);
-        var heartbeat = SendHeartbeatLoopAsync(framedStream, context, token);
+        var framesToPlain = CopyFramesToPlainAsync(framedStream, plainStream, plainClient, context, token);
+        using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var heartbeat = SendHeartbeatLoopAsync(framedStream, context, heartbeatCts.Token, token);
         var watchdog = WatchdogAsync(context, token);
 
-        var completed = await Task.WhenAny(plainToFrames, framesToPlain, heartbeat, watchdog);
-        if (completed == watchdog || completed == heartbeat)
-        {
-            await completed;
-        }
-
-        linkedCts.Cancel();
-        CloseTcpClient(plainClient);
-        CloseTcpClient(framedClient);
-
+        // FIN ends one direction only; retain the reverse stream and heartbeat reader.
+        var dataCompleted = Task.WhenAll(plainToFrames, context.InboundCompleted.Task);
         try
         {
-            await Task.WhenAll(plainToFrames, framesToPlain, heartbeat, watchdog);
+            var completed = await Task.WhenAny(dataCompleted, plainToFrames, framesToPlain, heartbeat, watchdog);
+            if (completed == plainToFrames)
+            {
+                await plainToFrames;
+                completed = await Task.WhenAny(dataCompleted, framesToPlain, heartbeat, watchdog);
+            }
+            await completed;
+            if (completed == dataCompleted)
+            {
+                // Both application directions are done, but queued framed bytes may
+                // still be in flight. Stop heartbeats, half-close sending, and drain
+                // the peer's transport FIN before disposing either connection.
+                using var drainDeadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+                drainDeadline.CancelAfter(TimeSpan.FromSeconds(context.Options.IdleTimeoutSeconds));
+                heartbeatCts.Cancel();
+                try
+                {
+                    // Normal completion cancels only the next heartbeat delay, never
+                    // an in-flight frame write. The absolute deadline bounds both
+                    // finishing that write and waiting for FIN, even if the peer
+                    // keeps sending valid heartbeats indefinitely.
+                    await heartbeat.WaitAsync(drainDeadline.Token);
+                    framedClient.Client.Shutdown(SocketShutdown.Send);
+                    await framesToPlain.WaitAsync(drainDeadline.Token);
+                }
+                catch (OperationCanceledException) when (!token.IsCancellationRequested && drainDeadline.IsCancellationRequested)
+                {
+                    throw new TimeoutException("代理传输关闭超过绝对等待期限。");
+                }
+            }
         }
-        catch (Exception ex) when (IsExpectedConnectionException(ex))
+        finally
         {
+            linkedCts.Cancel();
+            context.InboundCompleted.TrySetCanceled(token);
+            CloseTcpClient(plainClient);
+            CloseTcpClient(framedClient);
+            try
+            {
+                await Task.WhenAll(plainToFrames, framesToPlain, heartbeat, watchdog, dataCompleted);
+            }
+            catch (Exception ex) when (IsExpectedConnectionException(ex)) { }
         }
     }
 
@@ -520,8 +577,8 @@ public sealed class SafeTcpProxyService : ITcpProxyService
                     framedStream,
                     new TcpProxyControlMessage
                     {
-                        MessageType = TcpProxyMessageType.CloseConnection,
-                        PayloadText = "Plain stream closed"
+                        MessageType = TcpProxyMessageType.EndOfStream,
+                        PayloadText = "Plain send direction completed"
                     },
                     context,
                     cancellationToken);
@@ -544,16 +601,20 @@ public sealed class SafeTcpProxyService : ITcpProxyService
     private async Task CopyFramesToPlainAsync(
         Stream framedStream,
         Stream plainStream,
+        TcpClient plainClient,
         FrameBridgeContext context,
         CancellationToken cancellationToken)
     {
+        var receivedEof = false;
         while (!cancellationToken.IsCancellationRequested)
         {
-            var frame = await ReadVerifiedMessageAsync(
-                framedStream,
-                context.Options.SharedKey,
-                context.SessionToken,
-                cancellationToken);
+            TcpProxyControlMessage frame;
+            try
+            {
+                frame = await ReadVerifiedMessageAsync(framedStream,
+                    context.Options.SharedKey, context.SessionToken, cancellationToken);
+            }
+            catch (EndOfStreamException) when (receivedEof) { return; }
             SetLastInboundFrameTime(context);
 
             switch (frame.MessageType)
@@ -562,13 +623,20 @@ public sealed class SafeTcpProxyService : ITcpProxyService
                     TouchHeartbeat();
                     break;
                 case TcpProxyMessageType.Data:
+                    if (receivedEof) throw new InvalidDataException("EOF 后收到数据帧。");
                     var payload = DecryptPayload(frame, context);
                     await plainStream.WriteAsync(payload, cancellationToken);
                     await plainStream.FlushAsync(cancellationToken);
                     AddBytes(sent: 0, received: payload.Length);
                     break;
+                case TcpProxyMessageType.EndOfStream:
+                    if (receivedEof) throw new InvalidDataException("收到重复 EOF 帧。");
+                    receivedEof = true;
+                    plainClient.Client.Shutdown(SocketShutdown.Send);
+                    context.InboundCompleted.TrySetResult();
+                    break;
                 case TcpProxyMessageType.CloseConnection:
-                    return;
+                    return; // Legacy/full-close frame intentionally closes both directions.
                 case TcpProxyMessageType.Error:
                     throw new IOException(string.IsNullOrWhiteSpace(frame.ErrorMessage)
                         ? "对端返回代理错误。"
@@ -582,12 +650,15 @@ public sealed class SafeTcpProxyService : ITcpProxyService
     private async Task SendHeartbeatLoopAsync(
         Stream framedStream,
         FrameBridgeContext context,
+        CancellationToken stopScheduling,
         CancellationToken cancellationToken)
     {
         var interval = TimeSpan.FromSeconds(context.Options.HeartbeatIntervalSeconds);
-        while (!cancellationToken.IsCancellationRequested)
+        while (!stopScheduling.IsCancellationRequested)
         {
-            await Task.Delay(interval, cancellationToken);
+            try { await Task.Delay(interval, stopScheduling); }
+            catch (OperationCanceledException) when (stopScheduling.IsCancellationRequested) { return; }
+            if (stopScheduling.IsCancellationRequested) return;
             await SendFrameAsync(
                 framedStream,
                 new TcpProxyControlMessage
@@ -669,6 +740,23 @@ public sealed class SafeTcpProxyService : ITcpProxyService
         await connectTask;
     }
 
+    private async Task<TcpProxyControlMessage> ReadHandshakeAsync(
+        Stream stream, ProxyRuntimeOptions options, string? expectedSessionToken,
+        CancellationToken cancellationToken)
+    {
+        // Absolute deadline also bounds incomplete JSON sent one byte at a time.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(options.IdleTimeoutSeconds));
+        try
+        {
+            return await ReadVerifiedMessageAsync(stream, options.SharedKey, expectedSessionToken, deadline.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("代理认证握手超时。");
+        }
+    }
+
     private async Task<TcpProxyControlMessage> ReadVerifiedMessageAsync(
         Stream stream,
         string sharedKey,
@@ -676,7 +764,7 @@ public sealed class SafeTcpProxyService : ITcpProxyService
         CancellationToken cancellationToken)
     {
         var message = await ReadControlMessageAsync(stream, cancellationToken)
-            ?? throw new IOException("代理控制连接已关闭。");
+            ?? throw new EndOfStreamException("代理控制连接已关闭。");
         var validationError = ValidateSignedMessage(message, sharedKey, expectedSessionToken);
         if (!string.IsNullOrWhiteSpace(validationError))
         {
@@ -739,7 +827,8 @@ public sealed class SafeTcpProxyService : ITcpProxyService
     {
         var buffer = new List<byte>();
         var singleByte = new byte[1];
-        while (buffer.Count < MaxControlLineBytes)
+        var wireBytes = 0;
+        while (wireBytes < MaxControlLineBytes)
         {
             var read = await stream.ReadAsync(singleByte, cancellationToken);
             if (read == 0)
@@ -747,6 +836,7 @@ public sealed class SafeTcpProxyService : ITcpProxyService
                 break;
             }
 
+            wireBytes++;
             if (singleByte[0] == (byte)'\n')
             {
                 break;
@@ -758,7 +848,7 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             }
         }
 
-        if (buffer.Count >= MaxControlLineBytes)
+        if (wireBytes >= MaxControlLineBytes)
         {
             throw new InvalidDataException("代理控制消息超过最大长度。");
         }
@@ -813,9 +903,9 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             return "代理控制消息会话令牌不匹配。";
         }
 
-        if (string.IsNullOrWhiteSpace(message.Nonce))
+        if (string.IsNullOrWhiteSpace(message.Nonce) || message.Nonce.Length > MaxNonceLength)
         {
-            return "代理控制消息缺少 nonce。";
+            return "代理控制消息 nonce 缺失或过长。";
         }
 
         if (string.IsNullOrWhiteSpace(message.Signature))
@@ -829,11 +919,6 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             return "代理控制消息时间戳超出允许范围。";
         }
 
-        if (!TryRememberNonce(message.Nonce))
-        {
-            return "检测到重复 nonce，疑似重放消息。";
-        }
-
         var expectedSignature = ComputeSignature(message, sharedKey);
         var actualBytes = Encoding.UTF8.GetBytes(message.Signature);
         var expectedBytes = Encoding.UTF8.GetBytes(expectedSignature);
@@ -841,6 +926,12 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             !CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes))
         {
             return "代理控制消息签名校验失败。";
+        }
+
+        // Unauthenticated input must never mutate replay protection state.
+        if (!TryRememberNonce(message.Nonce, out var replayError))
+        {
+            return replayError;
         }
 
         return string.Empty;
@@ -935,26 +1026,32 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             message.MessageType.ToString()));
     }
 
-    private bool TryRememberNonce(string nonce)
+    private bool TryRememberNonce(string nonce, out string error)
     {
         var now = DateTimeOffset.UtcNow;
         lock (_syncRoot)
         {
-            var expired = _recentNonces
-                .Where(pair => now - pair.Value > NonceRetention)
-                .Select(pair => pair.Key)
-                .ToList();
-            foreach (var key in expired)
+            // Each entry is visited once at expiry, not once for every data frame.
+            while (_nonceExpiry.TryPeek(out var oldest) && now - oldest.RememberedAt > NonceRetention)
             {
-                _recentNonces.Remove(key);
+                _nonceExpiry.Dequeue();
+                _recentNonces.Remove(oldest.Nonce);
             }
 
             if (_recentNonces.ContainsKey(nonce))
             {
+                error = "检测到重复 nonce，疑似重放消息。";
+                return false;
+            }
+            if (_recentNonces.Count >= MaxRememberedNonces)
+            {
+                error = "代理重放保护缓存已达容量上限，请降低连接或消息速率并等待缓存过期。";
                 return false;
             }
 
-            _recentNonces[nonce] = now;
+            _recentNonces.Add(nonce, now);
+            _nonceExpiry.Enqueue((nonce, now));
+            error = string.Empty;
             return true;
         }
     }
@@ -1091,7 +1188,9 @@ public sealed class SafeTcpProxyService : ITcpProxyService
             config.SharedKey.Trim(),
             config.ProxyHeartbeatIntervalSeconds,
             config.ProxyIdleTimeoutSeconds,
-            config.ProxyReconnectAttempts);
+            config.ProxyReconnectAttempts,
+            config.TargetDeviceIp.Trim(),
+            config.TargetDevicePort);
     }
 
     private static TcpProxySessionInfo CreateSession(
@@ -1195,7 +1294,9 @@ public sealed class SafeTcpProxyService : ITcpProxyService
         string SharedKey,
         int HeartbeatIntervalSeconds,
         int IdleTimeoutSeconds,
-        int ReconnectAttempts);
+        int ReconnectAttempts,
+        string TargetDeviceIp,
+        int TargetDevicePort);
 
     private sealed class FrameBridgeContext : IDisposable
     {
@@ -1221,6 +1322,8 @@ public sealed class SafeTcpProxyService : ITcpProxyService
         public ProxyRuntimeOptions Options { get; }
 
         public SemaphoreSlim WriterLock { get; } = new(1, 1);
+
+        public TaskCompletionSource InboundCompleted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public long Sequence;
 
