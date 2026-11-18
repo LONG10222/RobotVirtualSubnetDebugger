@@ -12,6 +12,8 @@ public static class PairingKeyDeriver
         return Convert.ToBase64String(bytes);
     }
 
+    public static string CreateSharedKey() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
     public static string CreatePairingToken()
     {
         return Convert.ToBase64String(RandomNumberGenerator.GetBytes(24));

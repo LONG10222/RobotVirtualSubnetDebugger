@@ -28,6 +28,9 @@ public sealed class AppConfig
 
     public string TargetDeviceAdapterIp { get; set; } = string.Empty;
 
+    // Version 1 retires legacy broadcast-derived secrets on both endpoints.
+    public int PairingSecurityVersion { get; set; }
+
     public string SharedKey { get; set; } = string.Empty;
 
     public string AutoPairingToken { get; set; } = string.Empty;

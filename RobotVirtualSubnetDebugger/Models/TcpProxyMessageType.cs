@@ -8,5 +8,6 @@ public enum TcpProxyMessageType
     Data,
     CloseConnection,
     Heartbeat,
-    Error
+    Error,
+    EndOfStream
 }

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <RobotSourceRoot Condition="'$(RobotSourceRoot)' == ''">../../RobotVirtualSubnetDebugger</RobotSourceRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RobotSourceRoot)/Models/*.cs" Link="Production/Models/%(Filename)%(Extension)" />
+    <Compile Include="$(RobotSourceRoot)/Services/Proxy/*.cs" Link="Production/Proxy/%(Filename)%(Extension)" />
+    <Compile Include="$(RobotSourceRoot)/Services/Logging/ILogService.cs" Link="Production/ILogService.cs" />
+    <Compile Include="$(RobotSourceRoot)/Services/Platform/IPortAvailabilityService.cs" Link="Production/IPortAvailabilityService.cs" />
+  </ItemGroup>
+</Project>

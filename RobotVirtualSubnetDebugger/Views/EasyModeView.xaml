@@ -13,9 +13,9 @@
         </Grid.RowDefinitions>
 
         <StackPanel>
-            <TextBlock Text="简易模式 / 一键连接"
+            <TextBlock Text="连接向导 · 先 A 后 B"
                        Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Text="适合普通用户：主机 A 插网线连接硬件设备，主机 B 运行控制代码，两台电脑连同一个 WiFi。"
+            <TextBlock Text="先在 A 电脑配置，再在 B 电脑连接。两台电脑需网络互通；首次只验证连接和状态，不运行机械臂运动代码。"
                        Style="{StaticResource PageSubtitleStyle}" />
         </StackPanel>
 
@@ -36,19 +36,19 @@
                         Height="44"
                         Margin="0,0,10,0"
                         Command="{Binding SelectGatewayRoleCommand}"
-                        Content="这台电脑连接硬件设备（主机 A / 网关端）" />
+                        Content="第 1 步：我是 A · 连接机械臂" />
                 <Button Grid.Column="1"
                         Height="44"
                         Margin="10,0,0,0"
                         Command="{Binding SelectClientRoleCommand}"
-                        Content="这台电脑运行控制代码（主机 B / 调试端）" />
+                        Content="第 1 步：我是 B · 运行代码" />
             </Grid>
         </Border>
 
         <Grid Grid.Row="2" Margin="0,18,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="390" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="300" />
+                <ColumnDefinition Width="1.2*" />
             </Grid.ColumnDefinitions>
 
             <Border Background="White"
@@ -59,7 +59,7 @@
                     Margin="0,0,18,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock Text="当前步骤"
+                        <TextBlock Text="第 2 步：核对参数"
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource TextPrimaryBrush}" />
@@ -68,47 +68,49 @@
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    TextWrapping="Wrap" />
 
-                        <TextBlock Text="硬件设备 IP" Style="{StaticResource DashboardLabelStyle}" />
+                        <TextBlock Text="机械臂原 IP（代码中填写的地址）" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,12"
                                  Text="{Binding TargetDeviceIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                        <TextBlock Text="硬件设备端口" Style="{StaticResource DashboardLabelStyle}" />
+                        <TextBlock Text="主连接端口（不代表 SDK 的全部端口）" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,12"
                                  Text="{Binding TargetDevicePort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                        <TextBlock Text="自动配对密钥" Style="{StaticResource DashboardLabelStyle}" />
+                        <TextBlock Text="共享密钥（可信渠道复制）" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,8"
-                                 IsReadOnly="True"
+                                 IsReadOnly="{Binding IsGatewayRole}"
+                                 AutomationProperties.Name="共享密钥，B 电脑粘贴 A 电脑提供的密钥"
                                  Text="{Binding SharedKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Height="34"
                                 Margin="0,0,0,12"
                                 Command="{Binding GenerateSharedKeyCommand}"
-                                Content="刷新自动配对密钥"
+                                Content="生成新密钥（两端需重新配对）"
                                 Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                         <StackPanel Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="主机 A 设备网口 IP" Style="{StaticResource DashboardLabelStyle}" />
+                            <TextBlock Text="A 的有线网口 IP（不能与机械臂相同）" Style="{StaticResource DashboardLabelStyle}" />
                             <TextBox Height="32"
                                      Margin="0,0,0,12"
                                      Text="{Binding TargetDeviceAdapterIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
 
+                        <TextBlock Text="法奥示例：机械臂 192.168.57.2；SDK 使用 20003 / 20004 / 8080。原 IP 模式不要开启单端口代理，先在高级设置核对模式。" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,12" />
                         <TextBlock Text="子网掩码" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,12"
                                  Text="{Binding VirtualSubnetMask, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <StackPanel Visibility="{Binding IsClientRole, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="本地监听端口" Style="{StaticResource DashboardLabelStyle}" />
+                            <TextBlock Text="本地监听端口（仅单端口代理使用）" Style="{StaticResource DashboardLabelStyle}" />
                             <TextBox Height="32"
                                      Margin="0,0,0,12"
                                      Text="{Binding LocalListenPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
 
-                        <TextBlock Text="主机 A 局域网 IP" Style="{StaticResource DashboardLabelStyle}" />
+                        <TextBlock Text="A 的局域网 IP（两台电脑互通的地址）" Style="{StaticResource DashboardLabelStyle}" />
                         <TextBox Height="32"
                                  Margin="0,0,0,12"
                                  Text="{Binding GatewayLanIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -134,20 +136,20 @@
                         <Button Height="36"
                                 Margin="0,0,0,10"
                                 Command="{Binding PreviewCommand}"
-                                Content="预览将要执行的操作" />
+                                Content="第 3 步：预览操作（不修改网络）" />
                         <Button Height="38"
                                 Margin="0,0,0,10"
                                 Command="{Binding ApplyGatewayCommand}"
-                                Content="配置网口并等待连接"
+                                Content="第 4 步：确认并配置 A（修改网络）"
                                 Visibility="{Binding IsGatewayRole, Converter={StaticResource BoolToVisibilityConverter}}" />
                         <Button Height="38"
                                 Margin="0,0,0,10"
                                 Command="{Binding ApplyClientCommand}"
-                                Content="连接主机 A 并启动调试通道"
+                                Content="第 4 步：确认并连接 A（修改网络）"
                                 Visibility="{Binding IsClientRole, Converter={StaticResource BoolToVisibilityConverter}}" />
                         <Button Height="36"
                                 Command="{Binding RollbackCommand}"
-                                Content="恢复网络配置" />
+                                Content="撤销本程序上次网络修改" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -165,7 +167,7 @@
                         CornerRadius="8"
                         Padding="18">
                     <StackPanel>
-                        <TextBlock Text="{Binding ApplyStatusText}"
+                        <TextBlock Text="{Binding ApplyStatusText}" TextWrapping="Wrap"
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource TextPrimaryBrush}" />

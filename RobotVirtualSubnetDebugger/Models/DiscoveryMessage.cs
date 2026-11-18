@@ -23,6 +23,8 @@ public sealed class DiscoveryMessage
 
     public string ConnectedPeerName { get; set; } = string.Empty;
 
+    // Unauthenticated discovery must not transmit or accept key material.
+    [JsonIgnore]
     public string AutoPairingToken { get; set; } = string.Empty;
 
     public DateTimeOffset Timestamp { get; set; }

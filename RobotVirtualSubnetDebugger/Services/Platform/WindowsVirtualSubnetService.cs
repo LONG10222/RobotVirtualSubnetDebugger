@@ -7,6 +7,7 @@ namespace RobotNet.Windows.Wpf.Services.Platform;
 
 public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
 {
+    public const string RouteNatSafetyNotice = "原 IP 路由/NAT 不校验共享密钥；本程序未设置仅允许 B 电脑或指定机械臂端口的转发防火墙。启用后可能允许互联 LAN 上其他主机经 A 转发，请仅在已隔离且可信的实验网络使用，不连接公共或校园共享网络。";
     private const string NatName = "RobotNetTargetNat";
     private readonly INetworkAdapterService _networkAdapterService;
     private readonly IPrivilegeService _privilegeService;
@@ -54,7 +55,13 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             return plan;
         }
 
-        plan.TargetSubnetCidr = targetCidr;
+        if (!IsUsableHost(config.TargetDeviceIp, config.VirtualSubnetMask))
+        {
+            plan.Status = DiagnosticStatus.Error;
+            plan.Warnings.Add("机械臂目标必须是有效 IPv4 单播主机地址，不可使用网络或广播地址。");
+            return plan;
+        }
+        plan.TargetSubnetCidr = $"{IPAddress.Parse(config.TargetDeviceIp)}/32";
         if (targetCidr == "0.0.0.0/0")
         {
             plan.Status = DiagnosticStatus.Error;
@@ -65,6 +72,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
 
         var adapters = _networkAdapterService.GetAdapters();
         AddCoexistenceWarnings(plan, config, adapters);
+        if (plan.Status == DiagnosticStatus.Error) return plan;
         if (!config.EnableVirtualSubnetMode)
         {
             plan.Status = DiagnosticStatus.Warning;
@@ -144,7 +152,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         AppConfig config,
         IReadOnlyList<NetworkAdapterInfo> adapters)
     {
-        if (!IPAddress.TryParse(config.GatewayLanIp, out _))
+        if (!IsUnicastAddress(config.GatewayLanIp))
         {
             plan.Status = DiagnosticStatus.Error;
             plan.Warnings.Add("调试端必须配置网关端 LAN IP。");
@@ -152,12 +160,16 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             return;
         }
 
-        var lanAdapter = FindBestLanAdapter(adapters, config.GatewayLanIp);
+        var candidates = adapters.Where(adapter => IsActiveIPv4(adapter) &&
+            adapter.IPv4Address != config.GatewayLanIp && IsUsableHost(config.GatewayLanIp, adapter.SubnetMask) &&
+            _networkAdapterService.IsSameSubnet(adapter.IPv4Address, adapter.SubnetMask, config.GatewayLanIp)).ToList();
+        var lanAdapter = candidates.Count == 1 && !adapters.Any(a => a.IPv4Address == config.GatewayLanIp) ? candidates[0] : null;
         if (lanAdapter is null)
         {
-            plan.Status = DiagnosticStatus.Warning;
-            plan.Warnings.Add("未能自动确定调试端 LAN/WiFi 网卡，脚本会要求你手动填写 InterfaceAlias。");
-            plan.LanInterfaceName = "<请填写调试端 WiFi/LAN 网卡名称>";
+            plan.Status = DiagnosticStatus.Error;
+            plan.Warnings.Add("找不到唯一可直达网关端的活动 IPv4 网卡，或存在多个候选出口。请先确认两台电脑的互联地址及网卡配置。");
+            plan.Summary = "无法安全确定调试端路由出口，已阻止应用。";
+            return;
         }
         else
         {
@@ -197,9 +209,22 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         AppConfig config,
         IReadOnlyList<NetworkAdapterInfo> adapters)
     {
-        var lanAdapter = FindAdapterByIp(adapters, config.GatewayLanIp) ?? FindBestLanAdapter(adapters, config.GatewayLanIp);
-        var targetAdapter = FindAdapterByIp(adapters, config.TargetDeviceAdapterIp) ??
-                            adapters.FirstOrDefault(adapter => adapter.IsTargetNetworkCandidate);
+        var lanMatches = adapters.Where(a => IsActiveIPv4(a) && a.IPv4Address == config.GatewayLanIp).ToList();
+        var lanAdapter = lanMatches.Count == 1 ? lanMatches[0] : null;
+        var targetMatches = adapters.Where(a => IsActiveIPv4(a) && a.IPv4Address == config.TargetDeviceAdapterIp).ToList();
+        var targetAdapter = targetMatches.Count == 1 ? targetMatches[0] : null;
+        if (lanAdapter is null || targetAdapter is null || lanAdapter.Name == targetAdapter.Name ||
+            !_networkAdapterService.IsSameSubnet(config.TargetDeviceAdapterIp, config.VirtualSubnetMask, config.TargetDeviceIp) ||
+            config.TargetDeviceAdapterIp == config.TargetDeviceIp ||
+            targetAdapter.SubnetMask != config.VirtualSubnetMask ||
+            !IsUsableHost(config.GatewayLanIp, lanAdapter.SubnetMask) ||
+            !IsUsableHost(config.TargetDeviceIp, config.VirtualSubnetMask) ||
+            !IsUsableHost(config.TargetDeviceAdapterIp, config.VirtualSubnetMask))
+        {
+            plan.Status = DiagnosticStatus.Error;
+            plan.Warnings.Add("网关端必须已有两个唯一、活动且不同的网口：LAN 地址精确匹配本机，机械臂网口地址须已配置且与机械臂同网段、不同地址。禁止猜测或自动改错网卡。");
+            return;
+        }
 
         if (lanAdapter is null)
         {
@@ -241,6 +266,17 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             return;
         }
 
+        if (config.EnableNat)
+        {
+            plan.Steps.Add(new VirtualSubnetOperationStep
+            {
+                Order = 0, Name = "只读检查全部现有 NAT", RequiresAdministrator = true,
+                WillModifySystem = false, RiskLevel = "Low", RollbackCommand = "无",
+                Description = "任何不兼容或其他软件的 NAT 都阻止执行，不删除、不覆盖。",
+                Command = WindowsNatApplyService.CreatePreflightCommand(NatName, plan.LanSubnetCidr)
+            });
+        }
+
         var ensureAdapterIpStep = _adapterIpConfigurationService.CreateEnsureAdapterIpStep(
             plan.TargetInterfaceName,
             config.TargetDeviceAdapterIp,
@@ -261,28 +297,10 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             WillModifySystem = false,
             RiskLevel = "Low"
         });
-        plan.Steps.Add(new VirtualSubnetOperationStep
-        {
-            Order = 20,
-            Name = "启用 LAN 网卡转发",
-            Description = "允许网关端转发来自调试端 LAN 的目标网段流量。",
-            Command = $"Set-NetIPInterface -InterfaceAlias '{EscapePowerShell(plan.LanInterfaceName)}' -Forwarding Enabled",
-            RollbackCommand = $"Set-NetIPInterface -InterfaceAlias '{EscapePowerShell(plan.LanInterfaceName)}' -Forwarding Disabled",
-            RequiresAdministrator = true,
-            WillModifySystem = true,
-            RiskLevel = "Medium"
-        });
-        plan.Steps.Add(new VirtualSubnetOperationStep
-        {
-            Order = 30,
-            Name = "启用目标设备网卡转发",
-            Description = "允许网关端把流量转发到目标设备网段。",
-            Command = $"Set-NetIPInterface -InterfaceAlias '{EscapePowerShell(plan.TargetInterfaceName)}' -Forwarding Enabled",
-            RollbackCommand = $"Set-NetIPInterface -InterfaceAlias '{EscapePowerShell(plan.TargetInterfaceName)}' -Forwarding Disabled",
-            RequiresAdministrator = true,
-            WillModifySystem = true,
-            RiskLevel = "Medium"
-        });
+        plan.Steps.Add(OwnedNetworkChange.Forwarding(plan.LanInterfaceName, 20,
+            "启用 LAN 网卡转发", "仅在原先关闭时启用 IPv4 转发，回滚时恢复原状态。"));
+        plan.Steps.Add(OwnedNetworkChange.Forwarding(plan.TargetInterfaceName, 30,
+            "启用目标设备网卡转发", "仅在原先关闭时启用 IPv4 转发，回滚时恢复原状态。"));
         if (config.EnableNat && config.EnableVirtualSubnetMode)
         {
             plan.Steps.Add(_natApplyService.CreateNatStep(NatName, plan.LanSubnetCidr));
@@ -305,20 +323,21 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         AppConfig config,
         IReadOnlyList<NetworkAdapterInfo> adapters)
     {
-        var overlaps = adapters
-            .Where(adapter => string.Equals(adapter.Status, "Up", StringComparison.OrdinalIgnoreCase) &&
-                              !string.IsNullOrWhiteSpace(adapter.IPv4Address) &&
-                              !string.IsNullOrWhiteSpace(adapter.SubnetMask) &&
-                              _networkAdapterService.IsSameSubnet(adapter.IPv4Address, adapter.SubnetMask, config.TargetDeviceIp) &&
-                              !adapter.IsTargetNetworkCandidate)
-            .ToList();
-
+        // Compare both network ranges, not just whether the robot address is in the NIC range.
+        TryReadIPv4(config.TargetDeviceIp, out var robot);
+        TryReadIPv4(config.VirtualSubnetMask, out var robotMask);
+        var overlaps = adapters.Where(adapter => IsActiveIPv4(adapter) &&
+            !(config.Role == DeviceRole.GatewayAgent && adapter.IPv4Address == config.TargetDeviceAdapterIp &&
+              adapter.IPv4Address != config.GatewayLanIp) &&
+            SubnetsOverlap(adapter.IPv4Address, adapter.SubnetMask, robot, robotMask)).ToList();
         if (overlaps.Count > 0)
         {
-            plan.Status = DiagnosticStatus.Warning;
-            plan.Warnings.Add($"目标设备网段与活动网卡重叠：{string.Join("、", overlaps.Select(adapter => $"{adapter.Name}({adapter.IPv4Address})"))}。");
+            plan.Status = DiagnosticStatus.Error;
+            plan.Summary = "目标网段与非机械臂活动网卡重叠，已阻止应用。";
+            plan.Warnings.Add($"请使用独立且不重叠的电脑互联网络；冲突网卡：{string.Join("、", overlaps.Select(a => a.Name))}。不会替你修改现有网络。");
         }
 
+        plan.Warnings.Add(RouteNatSafetyNotice);
         plan.Warnings.Add("网络配置只允许目标网段精确路由，不修改 0.0.0.0/0 默认路由。");
         plan.Warnings.Add("网络配置不修改 DNS，不接管 VPN DNS。");
 
@@ -334,17 +353,27 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         return result.Status == DiagnosticStatus.Success;
     }
 
-    private NetworkAdapterInfo? FindBestLanAdapter(IReadOnlyList<NetworkAdapterInfo> adapters, string gatewayLanIp)
-    {
-        var direct = FindAdapterByIp(adapters, gatewayLanIp);
-        if (direct is not null)
-        {
-            return direct;
-        }
+    private static bool IsUnicastAddress(string ip) => TryReadIPv4(ip, out var value) &&
+        (value >> 24) != 0 && (value >> 24) != 127 && (value >> 24) < 224;
 
-        return adapters.FirstOrDefault(adapter => adapter.IsLanCandidate && !adapter.IsVirtual) ??
-               adapters.FirstOrDefault(adapter => !string.IsNullOrWhiteSpace(adapter.Gateway) && !adapter.IsVirtual);
+    private static bool IsUsableHost(string ip, string mask)
+    {
+        if (!IsUnicastAddress(ip) || !TryReadIPv4(ip, out var address) ||
+            !TryReadIPv4(mask, out var netmask) || !TryGetPrefixLength(netmask, out var prefix)) return false;
+        return prefix >= 31 || ((address & ~netmask) != 0 && (address & ~netmask) != ~netmask);
     }
+
+    private static bool SubnetsOverlap(string ip, string mask, uint robot, uint robotMask)
+    {
+        if (!TryReadIPv4(ip, out var address) || !TryReadIPv4(mask, out var netmask)) return false;
+        var common = netmask & robotMask;
+        return (address & common) == (robot & common);
+    }
+
+    private static bool IsActiveIPv4(NetworkAdapterInfo adapter) =>
+        string.Equals(adapter.Status, "Up", StringComparison.OrdinalIgnoreCase) &&
+        TryReadIPv4(adapter.IPv4Address, out _) &&
+        TryReadIPv4(adapter.SubnetMask, out var mask) && TryGetPrefixLength(mask, out var prefix) && prefix > 0;
 
     private static NetworkAdapterInfo? FindAdapterByIp(IReadOnlyList<NetworkAdapterInfo> adapters, string ip)
     {
@@ -356,13 +385,19 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
         return adapters.FirstOrDefault(adapter => string.Equals(adapter.IPv4Address, ip, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string CreateApplyScript(VirtualSubnetPlan plan)
+    internal static List<VirtualSubnetOperationStep> GetApplySteps(VirtualSubnetPlan plan) =>
+        plan.Steps.Where(step => !string.IsNullOrWhiteSpace(step.Command) && step.Command != "无")
+            .OrderBy(step => step.Order).ToList();
+
+    internal static string CreateApplyScript(VirtualSubnetPlan plan)
     {
-        var commands = string.Join(Environment.NewLine, plan.Steps
-            .Where(step => !string.Equals(step.Command, "无", StringComparison.OrdinalIgnoreCase))
-            .Select(step => $"""
-                Write-Host "[{step.Order}] {EscapeScriptText(step.Name)}"
-                {step.Command}
+        var commands = string.Join(Environment.NewLine, GetApplySteps(plan)
+            .Select(step => $$"""
+                Write-Host "[{{step.Order}}] {{EscapeScriptText(step.Name)}}"
+                $robotUndo.Push({
+                    {{((string.IsNullOrWhiteSpace(step.RollbackCommand) || step.RollbackCommand == "无") ? "# no mutation" : step.RollbackCommand)}}
+                })
+                {{step.Command}}
                 """));
 
         return $$"""
@@ -372,9 +407,13 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             # Mode: {{plan.Mode}}
             # Target subnet: {{plan.TargetSubnetCidr}}
             # This script is generated for manual review. Run in Administrator PowerShell only.
+            # SECURITY: Route/NAT is NOT protected by the shared pairing key.
+            # It enables LAN-source forwarding without a B-only or robot-port firewall.
+            # Use only an isolated, trusted lab network; never a public/shared campus LAN.
 
             #Requires -RunAsAdministrator
             $ErrorActionPreference = 'Stop'
+            Write-Warning '{{RouteNatSafetyNotice}}'
             $ConfirmRobotNetStage5 = $false
 
             if (-not $ConfirmRobotNetStage5) {
@@ -385,25 +424,45 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
                 throw 'Refusing to modify default route 0.0.0.0/0.'
             }
 
-            Write-Host 'RobotNet Stage 5 apply started.'
+            $operationDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'RobotNet.Windows.Wpf/operations'
+            New-Item -ItemType Directory -Path $operationDirectory -Force | Out-Null
+            $operationLock = [System.IO.File]::Open((Join-Path $operationDirectory 'network-operation.lock'), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+            try {
+            Write-Host 'RobotNet Stage 5 apply started.' 
             Write-Host 'Default route preview. This script must not modify it.'
             Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Format-Table -AutoSize
 
-            {{commands}}
+            $robotUndo = [System.Collections.Generic.Stack[scriptblock]]::new()
+            try {
+                {{commands}}
+            } catch {
+                $originalFailure = $_
+                $undoFailures = @()
+                while ($robotUndo.Count -gt 0) {
+                    try { & ($robotUndo.Pop()) } catch { $undoFailures += $_.Exception.Message }
+                }
+                if ($undoFailures.Count -gt 0) {
+                    throw ("Application failed: " + $originalFailure.Exception.Message + "; rollback incomplete, inspect receipts: " + ($undoFailures -join '; '))
+                }
+                throw $originalFailure
+            }
 
             Write-Host 'RobotNet Stage 5 apply completed.'
+            } finally { $operationLock.Dispose() } 
             """;
     }
 
-    private static string CreateRollbackScript(VirtualSubnetPlan plan)
+    internal static string CreateRollbackScript(VirtualSubnetPlan plan)
     {
         var commands = string.Join(Environment.NewLine, plan.Steps
             .Where(step => !string.IsNullOrWhiteSpace(step.RollbackCommand) &&
                            !string.Equals(step.RollbackCommand, "无", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(step => step.Order)
-            .Select(step => $"""
-                Write-Host "[Rollback {step.Order}] {EscapeScriptText(step.Name)}"
-                {step.RollbackCommand}
+            .Select(step => $$"""
+                Write-Host "[Rollback {{step.Order}}] {{EscapeScriptText(step.Name)}}"
+                try {
+                    {{step.RollbackCommand}}
+                } catch { $rollbackErrors += $_.Exception.Message }
                 """));
 
         return $$"""
@@ -412,18 +471,28 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             # Role: {{plan.Role}}
             # Mode: {{plan.Mode}}
             # This script is generated for manual review. Run in Administrator PowerShell only.
+            # SECURITY: Route/NAT is NOT protected by the shared pairing key.
+            # It enables LAN-source forwarding without a B-only or robot-port firewall.
+            # Use only an isolated, trusted lab network; never a public/shared campus LAN.
 
             #Requires -RunAsAdministrator
-            $ErrorActionPreference = 'Continue'
+            $ErrorActionPreference = 'Stop'
             $ConfirmRobotNetStage5Rollback = $false
 
             if (-not $ConfirmRobotNetStage5Rollback) {
                 throw 'Review this rollback script first, then set $ConfirmRobotNetStage5Rollback = $true to rollback Stage 5 network changes.'
             }
 
+            $operationDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'RobotNet.Windows.Wpf/operations'
+            New-Item -ItemType Directory -Path $operationDirectory -Force | Out-Null
+            $operationLock = [System.IO.File]::Open((Join-Path $operationDirectory 'network-operation.lock'), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+            try {
+            $rollbackErrors = @()
             {{commands}}
+            if ($rollbackErrors.Count -gt 0) { throw ("Rollback incomplete; all steps attempted: " + ($rollbackErrors -join '; ')) }
 
             Write-Host 'RobotNet Stage 5 rollback completed.'
+            } finally { $operationLock.Dispose() } 
             """;
     }
 
@@ -493,7 +562,12 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
     private static bool TryReadIPv4(string value, out uint result)
     {
         result = 0;
-        if (!IPAddress.TryParse(value, out var address))
+        // Reject alternate IPv4 spellings (integer, hex, short form and padded octets).
+        // Address ownership and conflict checks compare strings, so accepting aliases
+        // could mistake the robot address for a distinct local adapter address.
+        if (string.IsNullOrWhiteSpace(value) || !IPAddress.TryParse(value, out var address) ||
+            address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork ||
+            !string.Equals(value, address.ToString(), StringComparison.Ordinal))
         {
             return false;
         }

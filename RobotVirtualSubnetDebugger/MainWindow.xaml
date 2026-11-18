@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="RobotNet.Windows.Wpf"
+        Title="灵枢互联 LingShu Link"
         Height="760"
         MinHeight="620"
         MinWidth="1040"
@@ -20,10 +20,14 @@
         <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="22,26,22,18">
-                    <TextBlock Text="RobotNet"
+                    <TextBlock Text="灵枢互联"
                                Foreground="White"
                                FontSize="25"
                                FontWeight="SemiBold" />
+                    <TextBlock Text="LingShu Link"
+                               Margin="0,4,0,0"
+                               Foreground="#B5C1CD"
+                               FontSize="14" />
                     <TextBlock Text="虚拟网段远程调试"
                                Margin="0,6,0,0"
                                Foreground="#B5C1CD"
@@ -36,11 +40,11 @@
                         Background="#223142"
                         CornerRadius="8">
                     <StackPanel>
-                        <TextBlock Text="MVP 安全模式"
+                        <TextBlock Text="操作前请确认"
                                    Foreground="White"
                                    FontWeight="SemiBold"
                                    FontSize="13" />
-                        <TextBlock Text="不修改系统网络配置"
+                        <TextBlock Text="预览不改网络；应用会修改网络" TextWrapping="Wrap"
                                    Margin="0,4,0,0"
                                    Foreground="#B5C1CD"
                                    FontSize="12" />

@@ -58,22 +58,26 @@ public sealed class MainViewModel : ObservableObject
         var diagnosticsViewModel = new DiagnosticsViewModel(configurationService, diagnosticService);
         var logsViewModel = new LogsViewModel(logService);
 
-        settingsViewModel.ConfigSaved += (_, _) => dashboardViewModel.Refresh();
+        settingsViewModel.ConfigSaved += (_, _) =>
+        {
+            dashboardViewModel.Refresh();
+            easyModeViewModel.ReloadSavedConfiguration();
+        };
 
         NavigationItems =
         [
-            new NavigationItemViewModel("Dashboard", "首页 Dashboard", dashboardViewModel, true),
-            new NavigationItemViewModel("EasyMode", "简易模式 One Click", easyModeViewModel, true),
-            new NavigationItemViewModel("Tutorial", "操作教程 Tutorial", tutorialViewModel, true),
-            new NavigationItemViewModel("Adapters", "网卡管理 Adapters", adaptersViewModel, true),
-            new NavigationItemViewModel("Discovery", "设备发现 Discovery", discoveryViewModel, true),
-            new NavigationItemViewModel("Session", "连接会话 Session", sessionViewModel, true),
-            new NavigationItemViewModel("TcpProxy", "TCP 代理 Proxy", tcpProxyViewModel, true),
-            new NavigationItemViewModel("VirtualSubnet", "虚拟网段 Virtual Subnet", virtualSubnetViewModel, true),
-            new NavigationItemViewModel("Production", "发布更新 Release", productionViewModel, true),
-            new NavigationItemViewModel("Settings", "高级模式 Settings", settingsViewModel, true),
-            new NavigationItemViewModel("Diagnostics", "诊断 Diagnostics", diagnosticsViewModel, true),
-            new NavigationItemViewModel("Logs", "日志 Logs", logsViewModel, true)
+            new NavigationItemViewModel("Dashboard", "状态总览", dashboardViewModel, true),
+            new NavigationItemViewModel("EasyMode", "连接向导（从这里开始）", easyModeViewModel, true),
+            new NavigationItemViewModel("Tutorial", "新手教程", tutorialViewModel, true),
+            new NavigationItemViewModel("Adapters", "查看网卡与 IP", adaptersViewModel, true),
+            new NavigationItemViewModel("Discovery", "查找另一台电脑", discoveryViewModel, true),
+            new NavigationItemViewModel("Session", "连接状态", sessionViewModel, true),
+            new NavigationItemViewModel("TcpProxy", "单端口代理（高级）", tcpProxyViewModel, true),
+            new NavigationItemViewModel("VirtualSubnet", "原 IP 路由（高级）", virtualSubnetViewModel, true),
+            new NavigationItemViewModel("Production", "版本与更新", productionViewModel, true),
+            new NavigationItemViewModel("Settings", "高级设置", settingsViewModel, true),
+            new NavigationItemViewModel("Diagnostics", "连接故障排查", diagnosticsViewModel, true),
+            new NavigationItemViewModel("Logs", "运行日志", logsViewModel, true)
         ];
 
         SelectedNavigationItem = NavigationItems[1];

@@ -36,7 +36,7 @@ public sealed class ConnectionPreflightService : IConnectionPreflightService
             port => config.DiscoveryPort = port,
             result);
 
-        if (config.Role == DeviceRole.DebugClient)
+        if (config.EnableTcpProxyMode && config.Role == DeviceRole.DebugClient)
         {
             EnsurePort(
                 items,
@@ -49,7 +49,7 @@ public sealed class ConnectionPreflightService : IConnectionPreflightService
                 result);
         }
 
-        if (config.Role == DeviceRole.GatewayAgent)
+        if (config.EnableTcpProxyMode && config.Role == DeviceRole.GatewayAgent)
         {
             EnsurePort(
                 items,
@@ -60,6 +60,17 @@ public sealed class ConnectionPreflightService : IConnectionPreflightService
                 allowCurrentProcessOwner: true,
                 port => config.ProxyControlPort = port,
                 result);
+        }
+
+        if (!config.EnableTcpProxyMode)
+        {
+            items.Add(new DiagnosticResult
+            {
+                Name = "原 IP 模式",
+                Status = DiagnosticStatus.Warning,
+                Message = "未启用本地 TCP 代理，不检查或修改代理监听端口。",
+                Suggestion = "这里只检查本机发现端口，不代表 A/B 路由、NAT 或机械臂多个端口已连通。"
+            });
         }
 
         result.Items = items;

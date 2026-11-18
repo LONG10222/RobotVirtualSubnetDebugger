@@ -25,7 +25,7 @@ public sealed class EasyModeViewModel : ObservableObject
     private DeviceInfo? _selectedGateway;
     private string _targetDeviceIp = "192.168.1.10";
     private int _targetDevicePort = 30003;
-    private string _targetDeviceAdapterIp = "192.168.1.100";
+    private string _targetDeviceAdapterIp = string.Empty;
     private string _virtualSubnetMask = "255.255.255.0";
     private int _localListenPort = 30003;
     private string _gatewayLanIp = string.Empty;
@@ -231,11 +231,11 @@ public sealed class EasyModeViewModel : ObservableObject
             PreviewSteps.Add(step);
         }
 
-        PlanSummary = plan.Summary;
+        PlanSummary = plan.Summary + Environment.NewLine + WindowsVirtualSubnetService.RouteNatSafetyNotice;
         ApplyStatus = NetworkConfigurationApplyStatus.Previewed;
         Status = plan.Status == DiagnosticStatus.Error
             ? $"预览失败：{string.Join("；", plan.Warnings)}"
-            : "已生成操作预览。确认无误后点击一键按钮。";
+            : "已生成预览，尚未修改网络。核对地址和操作后，再点击第 4 步确认。";
     }
 
     private async Task RefreshGatewaysAsync()
@@ -313,7 +313,7 @@ public sealed class EasyModeViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(config.SharedKey))
         {
             ApplyStatus = NetworkConfigurationApplyStatus.Failed;
-            Status = "未获取到自动配对密钥。请先刷新并选择主机 A，或到高级模式手动填写 SharedKey。";
+            Status = "尚未配置共享密钥。请通过可信渠道将主机 A 的 共享密钥复制到本页密钥栏。";
             return;
         }
 
@@ -337,7 +337,7 @@ public sealed class EasyModeViewModel : ObservableObject
         var result = await _networkConfigurationExecutor.ApplyClientConfigurationAsync(config);
         ApplyStatus = result.Status;
         Status = result.Success
-            ? "主机 B 已连接，现在你的代码可以访问目标设备 IP/端口。"
+            ? "网络配置已应用。下一步只测试连接和状态读取；尚不代表机械臂 SDK 全部端口或运动控制已验证。"
             : result.Message;
         AddResultLogs(result);
     }
@@ -416,7 +416,7 @@ public sealed class EasyModeViewModel : ObservableObject
 
         return _userConfirmationService.Confirm(
             title,
-            $"即将在程序内执行以下网络配置。请确认这些步骤符合预期：{Environment.NewLine}{Environment.NewLine}{preview}{Environment.NewLine}{Environment.NewLine}程序不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？");
+            $"即将在程序内执行以下网络配置。请确认这些步骤符合预期：{Environment.NewLine}{Environment.NewLine}{preview}{Environment.NewLine}{Environment.NewLine}{WindowsVirtualSubnetService.RouteNatSafetyNotice}{Environment.NewLine}{Environment.NewLine}程序不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？");
     }
 
     private AppConfig BuildConfigFromInput()
@@ -432,7 +432,7 @@ public sealed class EasyModeViewModel : ObservableObject
         config.SharedKey = SharedKey.Trim();
         config.EnableNat = true;
         config.EnablePreciseRoute = true;
-        config.EnableTcpProxyMode = true;
+        // Preserve the explicit mode selected in settings; single-port proxy is not a transparent SDK route.
         config.EnableVirtualSubnetMode = true;
 
         return config;
@@ -441,12 +441,21 @@ public sealed class EasyModeViewModel : ObservableObject
     private void GenerateSharedKey()
     {
         var config = _configurationService.Load();
-        config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
-        config.SharedKey = PairingKeyDeriver.DeriveSharedKey(config.DeviceId, config.AutoPairingToken);
+        config.AutoPairingToken = string.Empty;
+        config.PairingSecurityVersion = 1;
+        config.SharedKey = PairingKeyDeriver.CreateSharedKey();
         _configurationService.Save(config);
         SharedKey = config.SharedKey;
-        Status = "已刷新自动配对密钥。主机 B 重新发现主机 A 后会自动获取，无需复制粘贴。";
-        _logService.Audit("简易模式已刷新自动配对令牌，令牌和密钥内容未写入日志。");
+        Status = "已生成新共享密钥。请通过可信渠道复制到主机 B；密钥不会在局域网广播。";
+        _logService.Audit("简易模式已刷新共享密钥，密钥内容未写入日志。");
+    }
+
+    public void ReloadSavedConfiguration()
+    {
+        LoadFromConfig();
+        PreviewSteps.Clear();
+        PlanSummary = string.Empty;
+        Status = "已载入保存的参数。请重新预览，再决定是否应用网络修改。";
     }
 
     private void LoadFromConfig()
@@ -455,9 +464,7 @@ public sealed class EasyModeViewModel : ObservableObject
         SelectedRole = config.Role;
         TargetDeviceIp = config.TargetDeviceIp;
         TargetDevicePort = config.TargetDevicePort;
-        TargetDeviceAdapterIp = string.IsNullOrWhiteSpace(config.TargetDeviceAdapterIp)
-            ? TargetDeviceAdapterIp
-            : config.TargetDeviceAdapterIp;
+        TargetDeviceAdapterIp = config.TargetDeviceAdapterIp;
         VirtualSubnetMask = config.VirtualSubnetMask;
         LocalListenPort = config.LocalListenPort;
         GatewayLanIp = config.GatewayLanIp;
@@ -473,46 +480,28 @@ public sealed class EasyModeViewModel : ObservableObject
 
     private void EnsureGatewayAutoPairingKey(AppConfig config)
     {
-        var changed = false;
-        if (string.IsNullOrWhiteSpace(config.AutoPairingToken))
+        if (string.IsNullOrWhiteSpace(config.SharedKey))
         {
-            config.AutoPairingToken = PairingKeyDeriver.CreatePairingToken();
-            changed = true;
-        }
-
-        var derivedSharedKey = PairingKeyDeriver.DeriveSharedKey(config.DeviceId, config.AutoPairingToken);
-        if (string.IsNullOrWhiteSpace(config.SharedKey) || !string.Equals(config.SharedKey, derivedSharedKey, StringComparison.Ordinal))
-        {
-            config.SharedKey = derivedSharedKey;
-            SharedKey = derivedSharedKey;
-            changed = true;
-        }
-
-        if (changed)
-        {
+            config.SharedKey = PairingKeyDeriver.CreateSharedKey();
+            config.PairingSecurityVersion = 1;
+            config.AutoPairingToken = string.Empty;
+            SharedKey = config.SharedKey;
             _configurationService.Save(config);
-            _logService.Audit("网关端已准备自动配对密钥，密钥内容未写入日志。");
+            _logService.Audit("网关端已生成共享密钥，请通过可信渠道配对；密钥未写入日志。");
         }
     }
 
     private void TryUseAutoPairing(DeviceInfo gateway)
     {
-        if (!gateway.SupportsAutoPairing)
-        {
-            Status = "该主机 A 暂未提供自动配对信息，请刷新发现列表或使用高级模式手动 SharedKey。";
-            return;
-        }
-
-        SharedKey = PairingKeyDeriver.DeriveSharedKey(gateway.DeviceId, gateway.AutoPairingToken);
-        Status = $"已与 {gateway.ComputerName} 自动配对，无需手动复制密钥。";
-        _logService.Audit($"已从发现信息完成自动配对：Gateway={gateway.ComputerName}({gateway.DeviceId})。");
+        // Discovery is unauthenticated and must never set credentials.
+        Status = $"已发现 {gateway.ComputerName}。请确认身份并填写主机 A 的共享密钥；发现设备不等于完成配对。";
     }
 
     private void DetectAdapters()
     {
         var config = _configurationService.Load();
         var lan = _networkAdapterService.FindLanCandidates().FirstOrDefault();
-        if (lan is not null && string.IsNullOrWhiteSpace(GatewayLanIp))
+        if (IsGatewayRole && lan is not null && string.IsNullOrWhiteSpace(GatewayLanIp))
         {
             GatewayLanIp = lan.IPv4Address;
         }
