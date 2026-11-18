@@ -91,13 +91,43 @@ Check(Plan(a,Ad("A-LAN","192.168.31.20",true),Ad("Robot","192.168.57.100")).CanG
 a.TargetDeviceAdapterIp="192.168.57.2";
 Check(!Plan(a,Ad("A-LAN","192.168.31.20",true),Ad("Robot","192.168.57.2")).CanGenerateScripts,"unsafe tutorial duplicate robot/local IP rejected");
 }
+static void CanonicalAddressTests(){
+foreach(var alias in new[]{"3232241922", "0xC0A83902", "192.168.057.2", "192.168.57.002", " 192.168.57.2"}) {
+var c=C(DeviceRole.GatewayAgent);c.TargetDeviceIp=alias;c.TargetDeviceAdapterIp="192.168.57.2";
+Check(!Plan(c,Ad("LAN","192.168.31.20",true),Ad("Robot","192.168.57.2")).CanGenerateScripts,"noncanonical robot address rejected: "+alias);
+}
+var shortAddress=C(DeviceRole.DebugClient);shortAddress.TargetDeviceIp="10.2";
+Check(!Plan(shortAddress,Ad("LAN","192.168.31.30",true)).CanGenerateScripts,"short IPv4 rejected instead of silently targeting 10.0.0.2");
+var gateway=C(DeviceRole.DebugClient);gateway.GatewayLanIp="192.168.31.020";
+Check(!Plan(gateway,Ad("LAN","192.168.31.30",true)).CanGenerateScripts,"noncanonical gateway address rejected");
+var mask=C(DeviceRole.DebugClient);mask.VirtualSubnetMask="0xffffff00";
+Check(!Plan(mask,Ad("LAN","192.168.31.30",true)).CanGenerateScripts,"hex subnet mask rejected");
+}
+static void OriginalIpPreflightTests(){
+foreach(var role in new[]{DeviceRole.DebugClient,DeviceRole.GatewayAgent}) {
+var cfg=C(role);cfg.EnableTcpProxyMode=false;var ports=new BusyProxyPorts();
+var preflight=new RobotNet.Windows.Wpf.Services.Diagnostics.ConnectionPreflightService(ports,new Log());
+var before=(cfg.LocalListenPort,cfg.ProxyControlPort);var result=preflight.EnsurePortsReady(cfg);
+Check(result.CanContinue && !result.ConfigChanged && before==(cfg.LocalListenPort,cfg.ProxyControlPort) && ports.Calls.All(p=>p==PortProtocol.Udp),"original-IP preflight ignores unused occupied proxy listeners: "+role);
+cfg.EnableTcpProxyMode=true;result=preflight.EnsurePortsReady(cfg);
+Check(!result.CanContinue && ports.Calls.Contains(PortProtocol.Tcp),"enabled proxy still rejects exhausted TCP listeners: "+role);
+}
+}
 static void Main(string[] args){
 if(args.Length==2 && args[0]=="--lock-probe") {try {using var probe=NetworkOperationLock.Acquire(args[1]);Environment.Exit(0);}catch(IOException){Environment.Exit(23);}return;}
 
+CanonicalAddressTests();
+OriginalIpPreflightTests();
 var b=C(DeviceRole.DebugClient);var pb=Plan(b,Ad("B-LAN","192.168.31.30",true));
 Check(pb.TargetSubnetCidr=="192.168.1.10/32" && pb.Steps.Any(s=>s.Command.Contains("New-NetRoute")&&s.Command.Contains("192.168.31.20")),"B generates only original robot /32 host route via A; no destination rewrite");
+var routeStep=pb.Steps.Single(s=>s.Command.Contains("New-NetRoute"));
+File.WriteAllText("route-preflight.ps1",WindowsRouteApplyService.CreatePreflightCommand(pb.TargetSubnetCidr,"B-LAN",b.GatewayLanIp));
+Check(WindowsVirtualSubnetService.CreateApplyScript(pb).Contains(WindowsVirtualSubnetService.RouteNatSafetyNotice),"exported apply script carries data-plane trust warning before confirmation");
+Check(routeStep.Command.StartsWith("$robotHostRoutes = @(Get-NetRoute") && routeStep.Command.Contains("$robotHostRoutes.Count -eq 1") && routeStep.Command.Contains("Conflicting robot host route"),"host-route preflight inspects every interface and rejects ambiguous routes before mutation");
+Check(routeStep.Command.Split("$robotHostRoutes = @(Get-NetRoute").Length==3,"host-route conflict check repeated immediately before creation");
 Check(!pb.Steps.Any(s=>s.Command.Contains("New-NetIPAddress")),"B never assigns VirtualIp 192.168.1.101; no actual same-subnet local IP");
 var a=C(DeviceRole.GatewayAgent);var pa=Plan(a,Ad("A-LAN","192.168.31.20",true),Ad("A-ROBOT","192.168.1.100",false,true));
+Check(pa.Warnings.Contains(WindowsVirtualSubnetService.RouteNatSafetyNotice),"route/NAT plan explicitly exposes unauthenticated whole-LAN forwarding risk");
 Check(pa.LanSubnetCidr=="192.168.31.0/24" && pa.Steps.Count(s=>s.Command.Contains("Set-NetIPInterface"))==2 && pa.Steps.Any(s=>s.Command.Contains("New-NetNat")),"A enables both forwarding interfaces and LAN-source NAT");
 Check(pa.Steps.All(s=>!s.Command.Contains("NetFirewall")&&!s.Command.Contains("30003")&&!s.Command.Contains("SharedKey")),"Route/NAT plan has no robot-port firewall or pairing-key gate");
 var wrong=Plan(b,Ad("Wrong-Internet","10.8.0.2",true),Ad("Correct-LAN","192.168.31.30",true));
@@ -172,3 +202,9 @@ public NetworkOperationRecord? GetLastOperation()=>null;
 class UxDiscovery:RobotNet.Windows.Wpf.Services.Discovery.IDiscoveryService{public event EventHandler<DeviceInfo>? DeviceDiscovered;public Task StartAsync()=>Task.CompletedTask;public Task StopAsync()=>Task.CompletedTask;public IReadOnlyList<DeviceInfo> GetOnlineDevices()=>[];}
 class UxPreflight:RobotNet.Windows.Wpf.Services.Diagnostics.IConnectionPreflightService{public ConnectionPreflightResult EnsurePortsReady(AppConfig c)=>new(){CanContinue=true};}
 class UxConfirm:RobotNet.Windows.Wpf.Services.Ui.IUserConfirmationService{public bool Confirm(string title,string message)=>false;}
+
+class BusyProxyPorts:IPortAvailabilityService {
+public List<PortProtocol> Calls=new();
+public PortCheckResult CheckPort(int port,PortProtocol protocol){Calls.Add(protocol);return new(){Port=port,Protocol=protocol,IsAvailable=protocol==PortProtocol.Udp};}
+public PortCheckResult FindAvailablePort(int port,PortProtocol protocol,int maxAttempts=100)=>new(){Port=port,Protocol=protocol,IsAvailable=false};
+}

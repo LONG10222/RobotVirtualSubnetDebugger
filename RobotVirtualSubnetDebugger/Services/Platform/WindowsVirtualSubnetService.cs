@@ -7,6 +7,7 @@ namespace RobotNet.Windows.Wpf.Services.Platform;
 
 public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
 {
+    public const string RouteNatSafetyNotice = "原 IP 路由/NAT 不校验共享密钥；本程序未设置仅允许 B 电脑或指定机械臂端口的转发防火墙。启用后可能允许互联 LAN 上其他主机经 A 转发，请仅在已隔离且可信的实验网络使用，不连接公共或校园共享网络。";
     private const string NatName = "RobotNetTargetNat";
     private readonly INetworkAdapterService _networkAdapterService;
     private readonly IPrivilegeService _privilegeService;
@@ -336,6 +337,7 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             plan.Warnings.Add($"请使用独立且不重叠的电脑互联网络；冲突网卡：{string.Join("、", overlaps.Select(a => a.Name))}。不会替你修改现有网络。");
         }
 
+        plan.Warnings.Add(RouteNatSafetyNotice);
         plan.Warnings.Add("网络配置只允许目标网段精确路由，不修改 0.0.0.0/0 默认路由。");
         plan.Warnings.Add("网络配置不修改 DNS，不接管 VPN DNS。");
 
@@ -405,9 +407,13 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             # Mode: {{plan.Mode}}
             # Target subnet: {{plan.TargetSubnetCidr}}
             # This script is generated for manual review. Run in Administrator PowerShell only.
+            # SECURITY: Route/NAT is NOT protected by the shared pairing key.
+            # It enables LAN-source forwarding without a B-only or robot-port firewall.
+            # Use only an isolated, trusted lab network; never a public/shared campus LAN.
 
             #Requires -RunAsAdministrator
             $ErrorActionPreference = 'Stop'
+            Write-Warning '{{RouteNatSafetyNotice}}'
             $ConfirmRobotNetStage5 = $false
 
             if (-not $ConfirmRobotNetStage5) {
@@ -465,6 +471,9 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
             # Role: {{plan.Role}}
             # Mode: {{plan.Mode}}
             # This script is generated for manual review. Run in Administrator PowerShell only.
+            # SECURITY: Route/NAT is NOT protected by the shared pairing key.
+            # It enables LAN-source forwarding without a B-only or robot-port firewall.
+            # Use only an isolated, trusted lab network; never a public/shared campus LAN.
 
             #Requires -RunAsAdministrator
             $ErrorActionPreference = 'Stop'
@@ -553,7 +562,12 @@ public sealed class WindowsVirtualSubnetService : IVirtualSubnetService
     private static bool TryReadIPv4(string value, out uint result)
     {
         result = 0;
-        if (!IPAddress.TryParse(value, out var address))
+        // Reject alternate IPv4 spellings (integer, hex, short form and padded octets).
+        // Address ownership and conflict checks compare strings, so accepting aliases
+        // could mistake the robot address for a distinct local adapter address.
+        if (string.IsNullOrWhiteSpace(value) || !IPAddress.TryParse(value, out var address) ||
+            address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork ||
+            !string.Equals(value, address.ToString(), StringComparison.Ordinal))
         {
             return false;
         }

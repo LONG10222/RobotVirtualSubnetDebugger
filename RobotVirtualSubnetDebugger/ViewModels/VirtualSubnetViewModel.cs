@@ -179,7 +179,7 @@ public sealed class VirtualSubnetViewModel : ObservableObject
         Refresh();
         if (!_userConfirmationService.Confirm(
                 "确认一键应用网络配置",
-                $"即将在程序内应用当前虚拟网段计划：{Summary}{Environment.NewLine}{Environment.NewLine}程序会执行上方命令预览中的系统网络配置，并写入审计日志和回滚记录。不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？"))
+                $"即将在程序内应用当前虚拟网段计划：{Summary}{Environment.NewLine}{Environment.NewLine}程序会执行上方命令预览中的系统网络配置，并写入审计日志和回滚记录。不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。{Environment.NewLine}{Environment.NewLine}{WindowsVirtualSubnetService.RouteNatSafetyNotice}{Environment.NewLine}是否继续？"))
         {
             ScriptMessage = "已取消应用，未修改网络配置。";
             return;

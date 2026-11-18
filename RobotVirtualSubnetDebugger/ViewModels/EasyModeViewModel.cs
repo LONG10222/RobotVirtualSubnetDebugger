@@ -231,7 +231,7 @@ public sealed class EasyModeViewModel : ObservableObject
             PreviewSteps.Add(step);
         }
 
-        PlanSummary = plan.Summary;
+        PlanSummary = plan.Summary + Environment.NewLine + WindowsVirtualSubnetService.RouteNatSafetyNotice;
         ApplyStatus = NetworkConfigurationApplyStatus.Previewed;
         Status = plan.Status == DiagnosticStatus.Error
             ? $"预览失败：{string.Join("；", plan.Warnings)}"
@@ -416,7 +416,7 @@ public sealed class EasyModeViewModel : ObservableObject
 
         return _userConfirmationService.Confirm(
             title,
-            $"即将在程序内执行以下网络配置。请确认这些步骤符合预期：{Environment.NewLine}{Environment.NewLine}{preview}{Environment.NewLine}{Environment.NewLine}程序不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？");
+            $"即将在程序内执行以下网络配置。请确认这些步骤符合预期：{Environment.NewLine}{Environment.NewLine}{preview}{Environment.NewLine}{Environment.NewLine}{WindowsVirtualSubnetService.RouteNatSafetyNotice}{Environment.NewLine}{Environment.NewLine}程序不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？");
     }
 
     private AppConfig BuildConfigFromInput()

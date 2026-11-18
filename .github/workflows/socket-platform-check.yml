@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'RobotVirtualSubnetDebugger/**'
-      - 'tests/SocketPlatformChecks/**'
+      - 'tests/**'
       - '.github/workflows/socket-platform-check.yml'
   workflow_dispatch:
 
@@ -57,6 +57,21 @@ jobs:
         run: |
           dotnet run --configuration Release --project tests/Test.csproj
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5, verified official tag
+        with:
+          python-version: '3.12'
+
+      - name: Simulator readiness unit tests and local echo control (not SDK or NAT)
+        shell: bash
+        run: |
+          python -m unittest discover -s tests/sim_validation
+          python tests/sim_validation/three_ports.py
+
+      - name: Host-route preflight isolated PowerShell mocks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/route-preflight-mocks.ps1
+
       - name: Build tests against actual production proxy sources
         shell: pwsh
         run: |

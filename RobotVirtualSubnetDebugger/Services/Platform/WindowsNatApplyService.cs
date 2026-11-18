@@ -10,7 +10,7 @@ public sealed class WindowsNatApplyService : INatApplyService
         {
             Order = 40,
             Name = "创建或复用网关端 NAT",
-            Description = $"把来自 {lanSubnetCidr} 的调试端流量 NAT 到目标设备网段，避免目标设备需要回程路由。",
+            Description = $"把来自 {lanSubnetCidr} 的调试端流量 NAT 到目标设备网段，避免目标设备需要回程路由。此规则覆盖该 LAN 源网段，不限定 B 身份或机械臂端口，不受共享密钥保护。",
             RequiresAdministrator = true,
             WillModifySystem = true,
             RiskLevel = "High"
