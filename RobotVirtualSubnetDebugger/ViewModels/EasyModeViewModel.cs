@@ -25,7 +25,7 @@ public sealed class EasyModeViewModel : ObservableObject
     private DeviceInfo? _selectedGateway;
     private string _targetDeviceIp = "192.168.1.10";
     private int _targetDevicePort = 30003;
-    private string _targetDeviceAdapterIp = "192.168.1.100";
+    private string _targetDeviceAdapterIp = string.Empty;
     private string _virtualSubnetMask = "255.255.255.0";
     private int _localListenPort = 30003;
     private string _gatewayLanIp = string.Empty;
@@ -235,7 +235,7 @@ public sealed class EasyModeViewModel : ObservableObject
         ApplyStatus = NetworkConfigurationApplyStatus.Previewed;
         Status = plan.Status == DiagnosticStatus.Error
             ? $"预览失败：{string.Join("；", plan.Warnings)}"
-            : "已生成操作预览。确认无误后点击一键按钮。";
+            : "已生成预览，尚未修改网络。核对地址和操作后，再点击第 4 步确认。";
     }
 
     private async Task RefreshGatewaysAsync()
@@ -313,7 +313,7 @@ public sealed class EasyModeViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(config.SharedKey))
         {
             ApplyStatus = NetworkConfigurationApplyStatus.Failed;
-            Status = "尚未配置共享密钥。请通过可信渠道将主机 A 的 SharedKey 复制到本页密钥栏。";
+            Status = "尚未配置共享密钥。请通过可信渠道将主机 A 的 共享密钥复制到本页密钥栏。";
             return;
         }
 
@@ -337,7 +337,7 @@ public sealed class EasyModeViewModel : ObservableObject
         var result = await _networkConfigurationExecutor.ApplyClientConfigurationAsync(config);
         ApplyStatus = result.Status;
         Status = result.Success
-            ? "主机 B 已连接，现在你的代码可以访问目标设备 IP/端口。"
+            ? "网络配置已应用。下一步只测试连接和状态读取；尚不代表机械臂 SDK 全部端口或运动控制已验证。"
             : result.Message;
         AddResultLogs(result);
     }
@@ -432,7 +432,7 @@ public sealed class EasyModeViewModel : ObservableObject
         config.SharedKey = SharedKey.Trim();
         config.EnableNat = true;
         config.EnablePreciseRoute = true;
-        config.EnableTcpProxyMode = true;
+        // Preserve the explicit mode selected in settings; single-port proxy is not a transparent SDK route.
         config.EnableVirtualSubnetMode = true;
 
         return config;
@@ -450,15 +450,21 @@ public sealed class EasyModeViewModel : ObservableObject
         _logService.Audit("简易模式已刷新共享密钥，密钥内容未写入日志。");
     }
 
+    public void ReloadSavedConfiguration()
+    {
+        LoadFromConfig();
+        PreviewSteps.Clear();
+        PlanSummary = string.Empty;
+        Status = "已载入保存的参数。请重新预览，再决定是否应用网络修改。";
+    }
+
     private void LoadFromConfig()
     {
         var config = _configurationService.Load();
         SelectedRole = config.Role;
         TargetDeviceIp = config.TargetDeviceIp;
         TargetDevicePort = config.TargetDevicePort;
-        TargetDeviceAdapterIp = string.IsNullOrWhiteSpace(config.TargetDeviceAdapterIp)
-            ? TargetDeviceAdapterIp
-            : config.TargetDeviceAdapterIp;
+        TargetDeviceAdapterIp = config.TargetDeviceAdapterIp;
         VirtualSubnetMask = config.VirtualSubnetMask;
         LocalListenPort = config.LocalListenPort;
         GatewayLanIp = config.GatewayLanIp;
@@ -488,14 +494,14 @@ public sealed class EasyModeViewModel : ObservableObject
     private void TryUseAutoPairing(DeviceInfo gateway)
     {
         // Discovery is unauthenticated and must never set credentials.
-        Status = $"已发现 {gateway.ComputerName}。请确认身份并填写主机 A 的 SharedKey；广播自动配对已停用。";
+        Status = $"已发现 {gateway.ComputerName}。请确认身份并填写主机 A 的共享密钥；发现设备不等于完成配对。";
     }
 
     private void DetectAdapters()
     {
         var config = _configurationService.Load();
         var lan = _networkAdapterService.FindLanCandidates().FirstOrDefault();
-        if (lan is not null && string.IsNullOrWhiteSpace(GatewayLanIp))
+        if (IsGatewayRole && lan is not null && string.IsNullOrWhiteSpace(GatewayLanIp))
         {
             GatewayLanIp = lan.IPv4Address;
         }

@@ -48,19 +48,19 @@
                         <LineBreak />
                         <Run Text="2. 确认主机 A 也连接到和主机 B 相同的 WiFi。" />
                         <LineBreak />
-                        <Run Text="3. 打开“简易模式 / 一键连接”。" />
+                        <Run Text="3. 打开“连接向导”。" />
                         <LineBreak />
-                        <Run Text="4. 点击“这台电脑连接硬件设备（主机 A / 网关端）”。" />
+                        <Run Text="4. 点击“第 1 步：我是 A · 连接机械臂”。" />
                         <LineBreak />
-                        <Run Text="5. 填写或确认硬件设备 IP，例如 192.168.1.10。" />
+                        <Run Text="5. 填写或确认硬件设备 IP，法奥资料示例为 192.168.57.2（以实机为准）。" />
                         <LineBreak />
-                        <Run Text="6. 填写或确认硬件设备端口，例如 30003。" />
+                        <Run Text="6. 填写或确认硬件设备端口，法奥主连接端口为 20003，另有 20004 和 8080。" />
                         <LineBreak />
-                        <Run Text="7. 填写或确认主机 A 设备网口 IP，例如 192.168.1.100。" />
+                        <Run Text="7. 填写或确认主机 A 设备网口 IP，必须与机械臂同网段且不同 IP；不要填机械臂的 192.168.57.2。" />
                         <LineBreak />
-                        <Run Text="8. 不需要复制粘贴密钥。简易模式会自动准备配对密钥。" />
+                        <Run Text="8. 通过可信渠道把 A 的共享密钥交给 B；不要发到公开群聊。" />
                         <LineBreak />
-                        <Run Text="9. 点击“配置网口并等待连接”。完成后主机 A 只广播自身可用状态并监听，不主动搜索或连接其他电脑。" />
+                        <Run Text="9. 点击“第 4 步：确认并配置 A（修改网络）”。完成后主机 A 只广播自身可用状态并监听，不主动搜索或连接其他电脑。" />
                     </TextBlock>
 
                     <TextBlock Text="三、主机 B：我运行控制代码"
@@ -72,17 +72,17 @@
                                TextWrapping="Wrap">
                         <Run Text="1. 确认主机 B 和主机 A 连接同一个 WiFi。" />
                         <LineBreak />
-                        <Run Text="2. 打开“简易模式 / 一键连接”。" />
+                        <Run Text="2. 打开“连接向导”。" />
                         <LineBreak />
-                        <Run Text="3. 点击“这台电脑运行控制代码（主机 B / 调试端）”。" />
+                        <Run Text="3. 点击“第 1 步：我是 B · 运行代码”。" />
                         <LineBreak />
-                        <Run Text="4. 点击“刷新主机 A”，选择发现到的主机 A，程序会自动完成配对。" />
+                        <Run Text="4. 点击“刷新主机 A”，核对并选择主机 A，再将 A 提供的共享密钥粘贴到 B 的密钥栏；发现不等于配对。" />
                         <LineBreak />
-                        <Run Text="5. 填写或确认硬件设备 IP 和端口，例如 192.168.1.10:30003。" />
+                        <Run Text="5. 填写或确认硬件设备 IP 和端口，法奥示例为 192.168.57.2:20003（另需验证 20004、8080）。" />
                         <LineBreak />
-                        <Run Text="6. 点击“连接主机 A 并启动调试通道”。" />
+                        <Run Text="6. 点击“第 4 步：确认并连接 A（修改网络）”。" />
                         <LineBreak />
-                        <Run Text="7. 完成后，你的控制代码继续访问硬件设备 IP/端口，流量会通过主机 A 转发。" />
+                        <Run Text="7. 配置成功后先验证连接和只读状态。保持原 IP 的 SDK 需逐端口验证；不要直接运行运动示例。" />
                     </TextBlock>
 
                     <TextBlock Text="四、使用设备发现"
@@ -96,14 +96,14 @@
                         <LineBreak />
                         <Run Text="2. 两台电脑的“UDP 发现端口”必须一致，默认是 47831。" />
                         <LineBreak />
-                        <Run Text="3. 分别打开“设备发现 Discovery”，点击“启动发现”。" />
+                        <Run Text="3. 分别打开“查找另一台电脑”，点击“启动发现”。" />
                         <LineBreak />
                         <Run Text="4. 如果 Windows 防火墙弹窗，请允许专用网络访问。" />
                         <LineBreak />
                         <Run Text="5. 若网络正常，两台电脑会互相出现在发现列表中。" />
                     </TextBlock>
 
-                    <TextBlock Text="五、使用安全 TCP 代理"
+                    <TextBlock Text="五、单端口代理（不适用于完整法奥 SDK）"
                                FontSize="20"
                                FontWeight="SemiBold"
                                Foreground="#18212C" />
@@ -112,9 +112,9 @@
                                TextWrapping="Wrap">
                         <Run Text="1. 请通过可信渠道将主机 A 的 SharedKey 复制到主机 B。设备发现不传输密钥；双方升级后重新配对。" />
                         <LineBreak />
-                        <Run Text="2. 网关端打开“TCP 代理 Proxy”，启动网关端监听。" />
+                        <Run Text="2. 网关端打开“单端口代理（高级）”，启动网关端监听。" />
                         <LineBreak />
-                        <Run Text="3. 调试端打开“TCP 代理 Proxy”，启动调试端本地监听。" />
+                        <Run Text="3. 调试端打开“单端口代理（高级）”，启动调试端本地监听。" />
                         <LineBreak />
                         <Run Text="4. 调试代码连接 127.0.0.1:LocalListenPort，例如默认 127.0.0.1:30003。" />
                         <LineBreak />
@@ -128,9 +128,9 @@
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="1. 普通用户优先使用“简易模式 / 一键连接”。" />
+                        <Run Text="1. 法奥多端口 SDK 应使用原 IP 路由/NAT；单端口代理不能替代。先在高级设置预览法奥参数并核对两台电脑地址。" />
                         <LineBreak />
-                        <Run Text="2. “虚拟网段 Virtual Subnet”页面可以查看将要执行的路由、转发和 NAT 操作。" />
+                        <Run Text="2. “原 IP 路由（高级）”页面可以查看将要执行的路由、转发和 NAT 操作。" />
                         <LineBreak />
                         <Run Text="3. 点击“一键应用”会在程序内部执行网络配置。" />
                         <LineBreak />
@@ -146,7 +146,7 @@
                     <TextBlock Margin="0,10,0,18"
                                Foreground="#344054"
                                TextWrapping="Wrap">
-                        <Run Text="程序启动时会请求管理员权限。所有网络修改都会先显示操作预览，并写入审计日志；程序不会修改默认路由 0.0.0.0/0，不修改 DNS，不主动关闭 VPN，也不破坏正常 WiFi 上网。" />
+                        <Run Text="程序启动时会请求管理员权限。所有网络修改都会先显示操作预览，并写入审计日志；程序不会修改默认路由 0.0.0.0/0，不修改 DNS，不主动关闭 VPN，但错误参数仍可能影响连接；出现问题先停止操作，再使用恢复功能。" />
                     </TextBlock>
 
                     <TextBlock Text="八、推荐检查顺序"

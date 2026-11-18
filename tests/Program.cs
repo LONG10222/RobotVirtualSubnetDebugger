@@ -56,6 +56,25 @@ using(var next=NetworkOperationLock.Acquire(dir)) {Check(next.CanWrite,"operatio
 Check(File.Exists(Path.Combine(dir,"network-operation.lock")),"lock file retained to prevent rename/delete race");
 }finally {Directory.Delete(dir,true);}
 }
+static void StudentUxTests(){
+var cfg=C(DeviceRole.DebugClient);cfg.GatewayLanIp="";cfg.EnableTcpProxyMode=false;cfg.SharedKey="a-trusted-shared-key";
+var service=new MockConfig(cfg);var executor=new UxExecutor();
+var vm=new RobotNet.Windows.Wpf.ViewModels.EasyModeViewModel(service,new Adapters(new[]{Ad("B LAN","10.20.0.2",true)}),new UxDiscovery(),executor,new UxPreflight(),new UxConfirm(),new Log());
+Check(vm.GatewayLanIp=="","B never mistakes its own LAN IP for A's IP");
+vm.SharedKey="pasted-from-A";
+Check(vm.SharedKey=="pasted-from-A","B view model accepts pasted pairing key");
+vm.GatewayLanIp="10.20.0.1";vm.PreviewCommand.Execute(null);
+Check(!executor.Last!.EnableTcpProxyMode,"connection wizard preserves original-IP mode without enabling single-port proxy");
+Check(service.Saves==0 && executor.Applies==0,"preview never saves configuration or applies network operations");
+vm.PreviewCommand.Execute(null);
+Check(executor.Applies==0,"repeated preview does not apply network operations");
+cfg.TargetDeviceIp="192.168.57.2";cfg.TargetDeviceAdapterIp="";
+vm.ReloadSavedConfiguration();
+Check(vm.TargetDeviceAdapterIp=="","clearing saved A adapter IP clears wizard instead of retaining stale IP");
+Check(vm.TargetDeviceIp=="192.168.57.2" && vm.PreviewSteps.Count==0,"saved settings refresh wizard parameters and clear stale preview");
+vm.ApplyClientCommand.Execute(null);
+Check(executor.Applies==0 && vm.Status.Contains("已取消"),"cancel confirmation does not apply network changes");
+}
 static void FairinoTests(){
 var cfg=C(DeviceRole.DebugClient);cfg.GatewayLanIp="10.20.0.1";cfg.TargetDeviceAdapterIp="192.168.57.100";cfg.SharedKey="unchanged-test-key";
 var service=new MockConfig(cfg);var vm=new RobotNet.Windows.Wpf.ViewModels.SettingsViewModel(service,new Log());
@@ -119,6 +138,7 @@ Check(!Plan(badTarget,Ad("LAN","192.168.31.30",true)).CanGenerateScripts,"broadc
 TransactionTests();
 PersistenceTests();
 FairinoTests();
+StudentUxTests();
 LockTests();
 var mockPlan=new VirtualSubnetPlan{TargetSubnetCidr="192.168.1.10/32"};
 mockPlan.Steps.Add(new(){Order=1,Command="$global:trace += 'forward'",RollbackCommand="$global:trace += 'restore'"});
@@ -138,3 +158,17 @@ class Admin:IAdminElevationService{public bool IsReadOnlyMode=>false;public Plat
 
 class MockConfig(AppConfig cfg):RobotNet.Windows.Wpf.Services.Configuration.IConfigurationService{
 public int Saves;public AppConfig Load()=>cfg;public void Save(AppConfig c){Saves++;}public AppConfig CreateDefault()=>new();}
+
+class UxExecutor:INetworkConfigurationExecutor {
+public event EventHandler<string>? ExecutionLogAdded;
+public AppConfig? Last; public int Applies;
+public VirtualSubnetPlan PreviewGatewayConfiguration(AppConfig c){Last=c;return new(){Status=DiagnosticStatus.Success};}
+public VirtualSubnetPlan PreviewClientConfiguration(AppConfig c)=>PreviewGatewayConfiguration(c);
+public Task<NetworkConfigurationExecutionResult> ApplyGatewayConfigurationAsync(AppConfig c){Applies++;return Task.FromResult(new NetworkConfigurationExecutionResult());}
+public Task<NetworkConfigurationExecutionResult> ApplyClientConfigurationAsync(AppConfig c)=>ApplyGatewayConfigurationAsync(c);
+public Task<NetworkConfigurationExecutionResult> RollbackLastConfigurationAsync()=>Task.FromResult(new NetworkConfigurationExecutionResult());
+public NetworkOperationRecord? GetLastOperation()=>null;
+}
+class UxDiscovery:RobotNet.Windows.Wpf.Services.Discovery.IDiscoveryService{public event EventHandler<DeviceInfo>? DeviceDiscovered;public Task StartAsync()=>Task.CompletedTask;public Task StopAsync()=>Task.CompletedTask;public IReadOnlyList<DeviceInfo> GetOnlineDevices()=>[];}
+class UxPreflight:RobotNet.Windows.Wpf.Services.Diagnostics.IConnectionPreflightService{public ConnectionPreflightResult EnsurePortsReady(AppConfig c)=>new(){CanContinue=true};}
+class UxConfirm:RobotNet.Windows.Wpf.Services.Ui.IUserConfirmationService{public bool Confirm(string title,string message)=>false;}

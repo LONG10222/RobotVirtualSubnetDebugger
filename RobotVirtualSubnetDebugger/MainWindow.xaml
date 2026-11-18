@@ -40,11 +40,11 @@
                         Background="#223142"
                         CornerRadius="8">
                     <StackPanel>
-                        <TextBlock Text="MVP 安全模式"
+                        <TextBlock Text="操作前请确认"
                                    Foreground="White"
                                    FontWeight="SemiBold"
                                    FontSize="13" />
-                        <TextBlock Text="不修改系统网络配置"
+                        <TextBlock Text="预览不改网络；应用会修改网络" TextWrapping="Wrap"
                                    Margin="0,4,0,0"
                                    Foreground="#B5C1CD"
                                    FontSize="12" />
