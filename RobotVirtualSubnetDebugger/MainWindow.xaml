@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="RobotNet.Windows.Wpf"
+        Icon="Assets/RobotNet.ico"
         Height="760"
         MinHeight="620"
         MinWidth="1040"
@@ -20,10 +21,12 @@
         <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="22,26,22,18">
-                    <TextBlock Text="RobotNet"
-                               Foreground="White"
-                               FontSize="25"
-                               FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="Assets/RobotNet.png" Width="34" Height="34"
+                               Margin="0,0,8,0" AutomationProperties.Name="RobotNet" />
+                        <TextBlock Text="RobotNet" Foreground="White" FontSize="25"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="虚拟网段远程调试"
                                Margin="0,6,0,0"
                                Foreground="#B5C1CD"
