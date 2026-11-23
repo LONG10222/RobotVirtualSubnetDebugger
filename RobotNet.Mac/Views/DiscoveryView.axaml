@@ -1,0 +1,66 @@
+<UserControl x:Class="RobotNet.Mac.Views.DiscoveryView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="设备发现 Discovery"
+                           Classes="pageTitle" />
+                <TextBlock Text="{Binding Status}"
+                           Classes="pageSubtitle" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,6,0,0">
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Command="{Binding StartCommand}"
+                        Content="启动发现" />
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Command="{Binding StopCommand}"
+                        Content="停止发现" />
+                <Button Width="110"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Command="{Binding RefreshCommand}"
+                        Content="刷新列表" />
+                <Button Width="150"
+                        Height="36"
+                        Command="{Binding ConnectSelectedCommand}"
+                        Content="连接选中网关" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="1">
+            <DataGrid IsReadOnly="True" GridLinesVisibility="Horizontal" HeadersVisibility="Column" CanUserResizeColumns="True" ItemsSource="{Binding Devices}"
+                      SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                      BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                        <DataGridTextColumn Header="设备名" Width="170" Binding="{Binding ComputerName}" />
+                        <DataGridTextColumn Header="LAN IP" Width="130" Binding="{Binding LanIp}" />
+                        <DataGridTextColumn Header="角色" Width="110" Binding="{Binding RoleText}" />
+                        <DataGridTextColumn Header="在线状态" Width="90" Binding="{Binding OnlineText}" />
+                        <DataGridTextColumn Header="连接状态" Width="90" Binding="{Binding BusyText}" />
+                        <DataGridTextColumn Header="已连接对端" Width="160" Binding="{Binding ConnectedPeerText}" />
+                        <DataGridTextColumn Header="最后发现" Width="160" Binding="{Binding LastSeenText}" />
+                        <DataGridTextColumn Header="设备 ID" Width="230" Binding="{Binding DeviceId}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

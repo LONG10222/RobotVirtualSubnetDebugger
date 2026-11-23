@@ -329,7 +329,7 @@ public sealed class BasicDiagnosticService : IDiagnosticService
                     : $"Ping 网关端 {config.GatewayLanIp} 未收到响应。",
                 Suggestion = gatewayReachable
                     ? "两台电脑处于可通信的局域网。"
-                    : "请确认两台电脑在同一 WiFi/LAN，或检查 Windows 防火墙 ICMP 设置。"
+                    : "请确认两台电脑在同一 WiFi/LAN，或检查系统防火墙 ICMP 设置。"
             });
         }
 

@@ -102,6 +102,21 @@ public sealed class ConnectionPreflightService : IConnectionPreflightService
             return;
         }
 
+#if ROBOTNET_MACOS
+        // Discovery must use the same UDP port on both computers.
+        if (protocol == PortProtocol.Udp)
+        {
+            result.CanContinue = false;
+            items.Add(new DiagnosticResult
+            {
+                Name = name,
+                Status = DiagnosticStatus.Error,
+                Message = $"UDP {port} 被占用：{check.OwnerText}。",
+                Suggestion = "请释放端口，或在两台电脑上配置同一个可用的 UDP 发现端口。"
+            });
+            return;
+        }
+#endif
         var available = _portAvailabilityService.FindAvailablePort(port + 1, protocol);
         if (!available.IsAvailable)
         {

@@ -20,6 +20,14 @@ public sealed class DeviceInfo
 
     public string ConnectedPeerName { get; set; } = string.Empty;
 
+    public int ProxyControlPort { get; set; }
+
+    public string TargetDeviceIp { get; set; } = string.Empty;
+
+    public int TargetDevicePort { get; set; }
+
+    public string TargetSubnetMask { get; set; } = string.Empty;
+
     public string AutoPairingToken { get; set; } = string.Empty;
 
     public bool SupportsAutoPairing => Role == DeviceRole.GatewayAgent && !string.IsNullOrWhiteSpace(AutoPairingToken);

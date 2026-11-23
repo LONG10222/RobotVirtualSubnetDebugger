@@ -1,0 +1,58 @@
+<UserControl x:Class="RobotNet.Mac.Views.AdaptersView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="网卡管理 Adapters"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           Foreground="#18212C" />
+                <TextBlock Text="{Binding LastRefreshMessage}"
+                           Margin="0,8,0,0"
+                           Foreground="#5B6673"
+                           FontSize="14" />
+            </StackPanel>
+
+            <Button DockPanel.Dock="Right"
+                    Width="120"
+                    Height="36"
+                    Margin="16,6,0,0"
+                    Command="{Binding RefreshCommand}"
+                    Content="刷新网卡" />
+        </DockPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="1">
+            <DataGrid IsReadOnly="True" GridLinesVisibility="Horizontal" HeadersVisibility="Column" CanUserResizeColumns="True" ItemsSource="{Binding Adapters}"
+                      BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                        <DataGridTextColumn Header="名称" Width="180" Binding="{Binding Name}" />
+                        <DataGridTextColumn Header="IPv4" Width="120" Binding="{Binding IPv4Address}" />
+                        <DataGridTextColumn Header="掩码" Width="120" Binding="{Binding SubnetMask}" />
+                        <DataGridTextColumn Header="网关" Width="120" Binding="{Binding Gateway}" />
+                        <DataGridTextColumn Header="MAC" Width="140" Binding="{Binding MacAddress}" />
+                        <DataGridTextColumn Header="状态" Width="90" Binding="{Binding Status}" />
+                        <DataGridTextColumn Header="类型" Width="110" Binding="{Binding Type}" />
+                        <DataGridTextColumn Header="虚拟" Width="70" Binding="{Binding IsVirtual}" />
+                        <DataGridTextColumn Header="目标网段候选" Width="110" Binding="{Binding IsTargetNetworkCandidate}" />
+                        <DataGridTextColumn Header="局域网候选" Width="100" Binding="{Binding IsLanCandidate}" />
+                        <DataGridTextColumn Header="DNS" Width="220" Binding="{Binding DnsServersText}" />
+                        <DataGridTextColumn Header="描述" Width="260" Binding="{Binding Description}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

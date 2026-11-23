@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using RobotNet.Windows.Wpf.Commands;
 using RobotNet.Windows.Wpf.Models;
 using RobotNet.Windows.Wpf.Services.Configuration;
@@ -150,14 +149,6 @@ public sealed class SessionViewModel : ObservableObject
 
     private static void RunOnUiThread(Action action)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(action);
-        }
+        UiThread.Post(action);
     }
 }

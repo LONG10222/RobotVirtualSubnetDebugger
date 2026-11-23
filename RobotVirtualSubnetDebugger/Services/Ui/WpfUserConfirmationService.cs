@@ -4,7 +4,7 @@ namespace RobotNet.Windows.Wpf.Services.Ui;
 
 public sealed class WpfUserConfirmationService : IUserConfirmationService
 {
-    public bool Confirm(string title, string message)
+    public Task<bool> ConfirmAsync(string title, string message)
     {
         var result = MessageBox.Show(
             Application.Current?.MainWindow,
@@ -13,6 +13,6 @@ public sealed class WpfUserConfirmationService : IUserConfirmationService
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
-        return result == MessageBoxResult.Yes;
+        return Task.FromResult(result == MessageBoxResult.Yes);
     }
 }

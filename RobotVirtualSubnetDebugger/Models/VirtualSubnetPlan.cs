@@ -18,6 +18,8 @@ public sealed class VirtualSubnetPlan
 
     public string GatewayLanIp { get; set; } = string.Empty;
 
+    public string TargetDeviceAdapterIp { get; set; } = string.Empty;
+
     public string TargetDeviceIp { get; set; } = string.Empty;
 
     public string VirtualIp { get; set; } = string.Empty;

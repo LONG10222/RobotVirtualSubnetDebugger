@@ -1,0 +1,40 @@
+name: macOS compatibility
+
+on:
+  push:
+    branches: [macos-support]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project tests/RobotNet.Mac.Integration -c Release
+      - run: scripts/test-macos-network.sh
+      - run: |
+          scripts/publish-macos.sh osx-arm64
+          scripts/publish-macos.sh osx-x64
+          cat artifacts/macos/*.zip.sha256 > artifacts/macos/checksums-macos.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RobotNet-macOS
+          path: |
+            artifacts/macos/*.zip
+            artifacts/macos/checksums-macos.sha256
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet build RobotVirtualSubnetDebugger -c Release

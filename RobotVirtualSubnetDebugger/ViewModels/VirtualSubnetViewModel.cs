@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using RobotNet.Windows.Wpf.Commands;
 using RobotNet.Windows.Wpf.Models;
 using RobotNet.Windows.Wpf.Services.Configuration;
@@ -177,7 +176,7 @@ public sealed class VirtualSubnetViewModel : ObservableObject
         }
 
         Refresh();
-        if (!_userConfirmationService.Confirm(
+        if (!await _userConfirmationService.ConfirmAsync(
                 "确认一键应用网络配置",
                 $"即将在程序内应用当前虚拟网段计划：{Summary}{Environment.NewLine}{Environment.NewLine}程序会执行上方命令预览中的系统网络配置，并写入审计日志和回滚记录。不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？"))
         {
@@ -203,7 +202,7 @@ public sealed class VirtualSubnetViewModel : ObservableObject
 
     private async Task RollbackAsync()
     {
-        if (!_userConfirmationService.Confirm(
+        if (!await _userConfirmationService.ConfirmAsync(
                 "确认回滚网络配置",
                 "将回滚本程序上一次应用的网络配置记录。请确认当前没有其他工具依赖这些规则。是否继续？"))
         {
@@ -268,14 +267,6 @@ public sealed class VirtualSubnetViewModel : ObservableObject
 
     private static void RunOnUiThread(Action action)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(action);
-        }
+        UiThread.Post(action);
     }
 }

@@ -24,6 +24,8 @@ public sealed class AppConfig
 
     public int ProxyControlPort { get; set; } = 47832;
 
+    public string TargetDeviceInterfaceName { get; set; } = string.Empty;
+
     public string GatewayLanIp { get; set; } = string.Empty;
 
     public string TargetDeviceAdapterIp { get; set; } = string.Empty;

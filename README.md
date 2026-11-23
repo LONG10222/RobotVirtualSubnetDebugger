@@ -1,5 +1,9 @@
 # RobotNet.Windows.Wpf
 
+## macOS 分支
+
+`macos-support` 分支加入 macOS 14+ 应用，支持 Apple Silicon 和 Intel。macOS 与 Windows 可互任设备网关和调试端。请参阅 [macOS 安装、连接与构建](docs/MACOS.md)。
+
 ## 本次阶段化设计更新
 
 本次继续按阶段推进项目设计，重点完成“默认管理员模式 + 简易模式一键连接 + 程序内应用网络配置”。

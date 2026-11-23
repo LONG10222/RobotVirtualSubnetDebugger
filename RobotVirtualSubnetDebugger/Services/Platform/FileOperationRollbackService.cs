@@ -48,7 +48,9 @@ public sealed class FileOperationRollbackService : IOperationRollbackService
         var historyPath = Path.Combine(OperationsDirectory, $"{record.OperationId}.json");
         var json = JsonSerializer.Serialize(record, _jsonOptions);
         File.WriteAllText(historyPath, json);
-        File.WriteAllText(LastOperationPath, json);
+        var temporaryPath = LastOperationPath + ".tmp";
+        File.WriteAllText(temporaryPath, json);
+        File.Move(temporaryPath, LastOperationPath, overwrite: true);
         _logService.Audit($"网络配置操作记录已保存：{historyPath}");
     }
 

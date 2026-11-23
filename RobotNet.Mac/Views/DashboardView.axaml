@@ -1,0 +1,71 @@
+<UserControl x:Class="RobotNet.Mac.Views.DashboardView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="首页 Dashboard"
+                       FontSize="28"
+                       FontWeight="SemiBold"
+                       Foreground="#18212C" />
+            <TextBlock Text="{Binding Status}"
+                       Margin="0,8,0,0"
+                       Foreground="#5B6673"
+                       FontSize="14" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,24,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="24"
+                VerticalAlignment="Top">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="设备名" Classes="label" />
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceName}" Classes="value" />
+
+                <TextBlock Grid.Row="1" Text="设备 ID" Classes="label" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceId}" Classes="value" />
+
+                <TextBlock Grid.Row="2" Text="当前角色" Classes="label" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Role}" Classes="value" />
+
+                <TextBlock Grid.Row="3" Text="本机局域网 IP" Classes="label" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LocalLanIp}" Classes="value" />
+
+                <TextBlock Grid.Row="4" Text="目标设备网卡 IP" Classes="label" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TargetDeviceAdapterIp}" Classes="value" />
+
+                <TextBlock Grid.Row="5" Text="目标设备 IP" Classes="label" />
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding TargetDeviceIp}" Classes="value" />
+
+                <TextBlock Grid.Row="6" Text="虚拟 IP" Classes="label" />
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding VirtualIp}" Classes="value" />
+
+                <TextBlock Grid.Row="7" Text="管理员模式" Classes="label" />
+                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding AdminStatus}" Classes="value" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

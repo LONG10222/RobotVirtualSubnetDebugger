@@ -32,9 +32,7 @@ public sealed class JsonConfigurationService : IConfigurationService
         _identityService = identityService;
         _logService = logService;
 
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var appDirectory = Path.Combine(appData, "RobotNet.Windows.Wpf");
-        ConfigFilePath = Path.Combine(appDirectory, "config.json");
+        ConfigFilePath = Path.Combine(AppPaths.AppDataDirectory, "config.json");
     }
 
     public string ConfigFilePath { get; }
@@ -80,7 +78,16 @@ public sealed class JsonConfigurationService : IConfigurationService
         }
 
         var json = JsonSerializer.Serialize(config, _serializerOptions);
-        File.WriteAllText(ConfigFilePath, json);
+        var temporaryPath = ConfigFilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, ConfigFilePath, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
         _logService.Info($"配置已保存：{ConfigFilePath}");
     }
 

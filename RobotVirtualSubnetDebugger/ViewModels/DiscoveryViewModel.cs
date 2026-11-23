@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
-using System.Windows;
+#if ROBOTNET_MACOS
+using Avalonia.Threading;
+#else
 using System.Windows.Threading;
+#endif
 using RobotNet.Windows.Wpf.Commands;
 using RobotNet.Windows.Wpf.Models;
 using RobotNet.Windows.Wpf.Services.Configuration;
@@ -220,14 +223,6 @@ public sealed class DiscoveryViewModel : ObservableObject
 
     private static void RunOnUiThread(Action action)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(action);
-        }
+        UiThread.Post(action);
     }
 }

@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
-using System.Windows;
 using RobotNet.Windows.Wpf.Utils;
 
 namespace RobotNet.Windows.Wpf.Services.Logging;
@@ -54,15 +53,7 @@ public sealed class SimpleLogService : ILogService
             EntryAdded?.Invoke(this, entry);
         }
 
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            AddOnUiThread();
-        }
-        else
-        {
-            dispatcher.Invoke(AddOnUiThread);
-        }
+        UiThread.Invoke(AddOnUiThread);
     }
 
     private void AppendToFile(string entry)

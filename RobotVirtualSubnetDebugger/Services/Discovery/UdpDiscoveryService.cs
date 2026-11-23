@@ -22,6 +22,7 @@ public sealed class UdpDiscoveryService : IDiscoveryService
     private readonly ITunnelSessionService? _tunnelSessionService;
     private readonly Dictionary<string, DeviceInfo> _devices = [];
     private readonly object _syncRoot = new();
+    private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -48,18 +49,31 @@ public sealed class UdpDiscoveryService : IDiscoveryService
 
     public event EventHandler<DeviceInfo>? DeviceDiscovered;
 
-    public Task StartAsync()
+    public async Task StartAsync()
+    {
+        await _lifecycle.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            Start();
+        }
+        finally
+        {
+            _lifecycle.Release();
+        }
+    }
+
+    private void Start()
     {
         if (_cancellationTokenSource is not null)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var config = _configurationService.Load();
         _activeDiscoveryPort = config.DiscoveryPort;
 
-        _cancellationTokenSource = new CancellationTokenSource();
         _listener = CreateListener(_activeDiscoveryPort);
+        _cancellationTokenSource = new CancellationTokenSource();
         _sender = new UdpClient(AddressFamily.InterNetwork)
         {
             EnableBroadcast = true
@@ -72,10 +86,22 @@ public sealed class UdpDiscoveryService : IDiscoveryService
         _broadcastTask = Task.Run(() => BroadcastAsync(token), token);
 
         _logService.Info($"UDP 设备发现已启动，端口 {_activeDiscoveryPort}。");
-        return Task.CompletedTask;
     }
 
     public async Task StopAsync()
+    {
+        await _lifecycle.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await StopCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycle.Release();
+        }
+    }
+
+    private async Task StopCoreAsync()
     {
         var cancellationTokenSource = _cancellationTokenSource;
         if (cancellationTokenSource is null)
@@ -87,8 +113,8 @@ public sealed class UdpDiscoveryService : IDiscoveryService
         _listener?.Close();
         _sender?.Close();
 
-        await WaitForBackgroundTaskAsync(_listenTask);
-        await WaitForBackgroundTaskAsync(_broadcastTask);
+        await WaitForBackgroundTaskAsync(_listenTask).ConfigureAwait(false);
+        await WaitForBackgroundTaskAsync(_broadcastTask).ConfigureAwait(false);
 
         _listener?.Dispose();
         _sender?.Dispose();
@@ -124,8 +150,16 @@ public sealed class UdpDiscoveryService : IDiscoveryService
         };
 
         listener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-        listener.Client.Bind(new IPEndPoint(IPAddress.Any, discoveryPort));
-        return listener;
+        try
+        {
+            listener.Client.Bind(new IPEndPoint(IPAddress.Any, discoveryPort));
+            return listener;
+        }
+        catch
+        {
+            listener.Dispose();
+            throw;
+        }
     }
 
     private async Task ListenAsync(CancellationToken cancellationToken)
@@ -196,13 +230,17 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = _tunnelSessionService?.Current.IsConnected ?? false,
             ConnectedPeerDeviceId = _tunnelSessionService?.Current.PeerDeviceId ?? string.Empty,
             ConnectedPeerName = _tunnelSessionService?.Current.PeerDeviceName ?? string.Empty,
+            ProxyControlPort = config.Role == DeviceRole.GatewayAgent ? config.ProxyControlPort : 0,
+            TargetDeviceIp = config.Role == DeviceRole.GatewayAgent ? config.TargetDeviceIp : string.Empty,
+            TargetDevicePort = config.Role == DeviceRole.GatewayAgent ? config.TargetDevicePort : 0,
+            TargetSubnetMask = config.Role == DeviceRole.GatewayAgent ? config.VirtualSubnetMask : string.Empty,
             AutoPairingToken = config.Role == DeviceRole.GatewayAgent ? config.AutoPairingToken : string.Empty,
             Timestamp = DateTimeOffset.Now
         };
 
         var json = JsonSerializer.Serialize(message, _serializerOptions);
         var bytes = Encoding.UTF8.GetBytes(json);
-        await _sender!.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, _activeDiscoveryPort));
+        await _sender!.SendAsync(bytes, new IPEndPoint(ResolveBroadcastAddress(message.LanIp), _activeDiscoveryPort), cancellationToken);
 
         AddOrUpdateDevice(new DeviceInfo
         {
@@ -213,6 +251,10 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = message.IsBusy,
             ConnectedPeerDeviceId = message.ConnectedPeerDeviceId,
             ConnectedPeerName = message.ConnectedPeerName,
+            ProxyControlPort = message.ProxyControlPort,
+            TargetDeviceIp = message.TargetDeviceIp,
+            TargetDevicePort = message.TargetDevicePort,
+            TargetSubnetMask = message.TargetSubnetMask,
             AutoPairingToken = message.AutoPairingToken,
             LastSeen = DateTimeOffset.Now,
             IsOnline = true
@@ -241,6 +283,10 @@ public sealed class UdpDiscoveryService : IDiscoveryService
                 IsBusy = message.IsBusy,
                 ConnectedPeerDeviceId = message.ConnectedPeerDeviceId,
                 ConnectedPeerName = message.ConnectedPeerName,
+                ProxyControlPort = message.ProxyControlPort,
+                TargetDeviceIp = message.TargetDeviceIp,
+                TargetDevicePort = message.TargetDevicePort,
+                TargetSubnetMask = message.TargetSubnetMask,
                 AutoPairingToken = message.AutoPairingToken,
                 LastSeen = DateTimeOffset.Now,
                 IsOnline = true
@@ -266,6 +312,10 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = _tunnelSessionService?.Current.IsConnected ?? false,
             ConnectedPeerDeviceId = _tunnelSessionService?.Current.PeerDeviceId ?? string.Empty,
             ConnectedPeerName = _tunnelSessionService?.Current.PeerDeviceName ?? string.Empty,
+            ProxyControlPort = config.Role == DeviceRole.GatewayAgent ? config.ProxyControlPort : 0,
+            TargetDeviceIp = config.Role == DeviceRole.GatewayAgent ? config.TargetDeviceIp : string.Empty,
+            TargetDevicePort = config.Role == DeviceRole.GatewayAgent ? config.TargetDevicePort : 0,
+            TargetSubnetMask = config.Role == DeviceRole.GatewayAgent ? config.VirtualSubnetMask : string.Empty,
             AutoPairingToken = config.Role == DeviceRole.GatewayAgent ? config.AutoPairingToken : string.Empty,
             LastSeen = DateTimeOffset.Now,
             IsOnline = true
@@ -274,13 +324,35 @@ public sealed class UdpDiscoveryService : IDiscoveryService
 
     private string ResolveLanIp(AppConfig config)
     {
-        var lanIp = _networkAdapterService.FindLanCandidates().FirstOrDefault()?.IPv4Address;
+        var candidates = _networkAdapterService.FindLanCandidates();
+        if (config.Role == DeviceRole.GatewayAgent &&
+            candidates.Any(adapter => adapter.IPv4Address == config.GatewayLanIp))
+            return config.GatewayLanIp;
+
+        var lanIp = candidates.FirstOrDefault()?.IPv4Address;
         if (!string.IsNullOrWhiteSpace(lanIp))
         {
             return lanIp;
         }
 
         return string.IsNullOrWhiteSpace(config.GatewayLanIp) ? "0.0.0.0" : config.GatewayLanIp;
+    }
+
+    private IPAddress ResolveBroadcastAddress(string lanIp)
+    {
+        var local = _networkAdapterService.FindLanCandidates().FirstOrDefault(adapter => adapter.IPv4Address == lanIp);
+        if (local is null || !IPAddress.TryParse(lanIp, out var ip) ||
+            !IPAddress.TryParse(local.SubnetMask, out var mask) ||
+            ip.AddressFamily != AddressFamily.InterNetwork || mask.AddressFamily != AddressFamily.InterNetwork)
+            return IPAddress.Broadcast;
+
+        var address = ip.GetAddressBytes();
+        var netmask = mask.GetAddressBytes();
+        if (netmask[3] >= 254)
+            return IPAddress.Broadcast;
+        for (var index = 0; index < address.Length; index++)
+            address[index] |= (byte)~netmask[index];
+        return new IPAddress(address);
     }
 
     private void AddOrUpdateDevice(DeviceInfo device)
@@ -317,6 +389,10 @@ public sealed class UdpDiscoveryService : IDiscoveryService
             IsBusy = device.IsBusy,
             ConnectedPeerDeviceId = device.ConnectedPeerDeviceId,
             ConnectedPeerName = device.ConnectedPeerName,
+            ProxyControlPort = device.ProxyControlPort,
+            TargetDeviceIp = device.TargetDeviceIp,
+            TargetDevicePort = device.TargetDevicePort,
+            TargetSubnetMask = device.TargetSubnetMask,
             AutoPairingToken = device.AutoPairingToken
         };
     }
@@ -330,7 +406,7 @@ public sealed class UdpDiscoveryService : IDiscoveryService
 
         try
         {
-            await task;
+            await task.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

@@ -137,12 +137,21 @@ public sealed class ProductionViewModel : ObservableObject
     private void BuildChecklist()
     {
         Checklist.Clear();
+#if ROBOTNET_MACOS
+        Checklist.Add(new ReleaseChecklistItem
+        {
+            Name = "GitHub Releases 更新",
+            Status = "已接入",
+            Detail = $"仓库：{RepositoryText}。识别与本机芯片架构匹配的 macOS 发布包。"
+        });
+#else
         Checklist.Add(new ReleaseChecklistItem
         {
             Name = "GitHub Releases 更新",
             Status = "完成",
             Detail = $"默认仓库：{RepositoryText}。应用会查询 latest release，并下载 win-x64 发布包。"
         });
+#endif
         Checklist.Add(new ReleaseChecklistItem
         {
             Name = "崩溃报告",
@@ -155,6 +164,14 @@ public sealed class ProductionViewModel : ObservableObject
             Status = "完成",
             Detail = $"运行日志会写入：{LogFilePath}"
         });
+#if ROBOTNET_MACOS
+        Checklist.Add(new ReleaseChecklistItem
+        {
+            Name = "发布脚本",
+            Status = "已接入",
+            Detail = "scripts/publish-macos.sh 生成自包含 .app、ZIP 和 SHA256 校验文件。"
+        });
+#else
         Checklist.Add(new ReleaseChecklistItem
         {
             Name = "发布脚本",
@@ -167,6 +184,7 @@ public sealed class ProductionViewModel : ObservableObject
             Status = "完成",
             Detail = "发布脚本支持 SignTool；证书不应提交到仓库，需要发布者本机或 GitHub Secrets 配置。"
         });
+#endif
     }
 
     private void OpenReleasePage()
@@ -177,11 +195,15 @@ public sealed class ProductionViewModel : ObservableObject
     private static void OpenFolder(string path)
     {
         Directory.CreateDirectory(path);
+#if ROBOTNET_MACOS
+        Process.Start(new ProcessStartInfo("/usr/bin/open") { ArgumentList = { path } });
+#else
         Process.Start(new ProcessStartInfo
         {
             FileName = path,
             UseShellExecute = true
         });
+#endif
     }
 
     private static void OpenUrl(string url)

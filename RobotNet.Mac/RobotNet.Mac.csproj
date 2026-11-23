@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>$(DefineConstants);ROBOTNET_MACOS</DefineConstants>
+    <Version>0.8.0</Version>
+    <SharedSource>../RobotVirtualSubnetDebugger</SharedSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Native" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Skia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.12" />
+    <Compile Include="$(SharedSource)/Models/*.cs;$(SharedSource)/Utils/*.cs;$(SharedSource)/Commands/*.cs;$(SharedSource)/ViewModels/*.cs" LinkBase="Shared" />
+    <Compile Include="$(SharedSource)/Services/**/*.cs"
+             Exclude="$(SharedSource)/Services/Ui/WpfUserConfirmationService.cs;$(SharedSource)/Services/Platform/Windows*.cs;$(SharedSource)/Services/Platform/TcpProxyServiceAdapter.cs"
+             LinkBase="Shared" />
+    <InternalsVisibleTo Include="RobotNet.Mac.Integration" />
+    <EmbeddedResource Include="Platform/network.sh" />
+  </ItemGroup>
+</Project>

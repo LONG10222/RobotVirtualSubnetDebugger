@@ -8,10 +8,20 @@ public static class AppPaths
     {
         get
         {
+#if ROBOTNET_MACOS
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Library", "Application Support", "RobotNet");
+            if (OperatingSystem.IsMacOS())
+                Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            else
+                Directory.CreateDirectory(directory);
+#else
             var directory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "RobotNet.Windows.Wpf");
             Directory.CreateDirectory(directory);
+#endif
             return directory;
         }
     }

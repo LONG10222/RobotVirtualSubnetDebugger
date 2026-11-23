@@ -1,8 +1,10 @@
 using System.IO;
 using System.Reflection;
 using System.Text;
+#if !ROBOTNET_MACOS
 using System.Windows;
 using System.Windows.Threading;
+#endif
 using RobotNet.Windows.Wpf.Services.Logging;
 using RobotNet.Windows.Wpf.Utils;
 
@@ -33,11 +35,13 @@ public sealed class FileCrashReportService : ICrashReportService
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
+#if !ROBOTNET_MACOS
         if (Application.Current is not null)
         {
             Application.Current.DispatcherUnhandledException += OnDispatcherUnhandledException;
         }
 
+#endif
         _logService.Info($"崩溃报告已启用：{CrashReportsDirectory}");
     }
 
@@ -48,7 +52,7 @@ public sealed class FileCrashReportService : ICrashReportService
         var path = Path.Combine(CrashReportsDirectory, fileName);
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         var report = new StringBuilder()
-            .AppendLine("RobotNet.Windows.Wpf crash report")
+            .AppendLine("RobotNet crash report")
             .AppendLine($"Time: {timestamp:O}")
             .AppendLine($"Source: {source}")
             .AppendLine($"Version: {version}")
@@ -80,6 +84,7 @@ public sealed class FileCrashReportService : ICrashReportService
         e.SetObserved();
     }
 
+#if !ROBOTNET_MACOS
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         var path = WriteCrashReport("Application.DispatcherUnhandledException", e.Exception);
@@ -91,4 +96,5 @@ public sealed class FileCrashReportService : ICrashReportService
             MessageBoxImage.Error);
         Application.Current.Shutdown(1);
     }
+#endif
 }

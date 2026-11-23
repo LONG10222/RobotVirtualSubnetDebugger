@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using RobotNet.Windows.Wpf.Commands;
 using RobotNet.Windows.Wpf.Models;
 using RobotNet.Windows.Wpf.Services.Configuration;
@@ -27,6 +26,23 @@ public sealed class EasyModeViewModel : ObservableObject
     private int _targetDevicePort = 30003;
     private string _targetDeviceAdapterIp = "192.168.1.100";
     private string _virtualSubnetMask = "255.255.255.0";
+#if ROBOTNET_MACOS
+    private string _targetDeviceInterfaceName = string.Empty;
+    private bool _useTargetSubnet = true;
+
+    public string TargetDeviceInterfaceName
+    {
+        get => _targetDeviceInterfaceName;
+        set => SetProperty(ref _targetDeviceInterfaceName, value);
+    }
+
+    public bool UseTargetSubnet
+    {
+        get => _useTargetSubnet;
+        set => SetProperty(ref _useTargetSubnet, value);
+    }
+#endif
+
     private int _localListenPort = 30003;
     private string _gatewayLanIp = string.Empty;
     private string _sharedKey = string.Empty;
@@ -121,6 +137,15 @@ public sealed class EasyModeViewModel : ObservableObject
             if (SetProperty(ref _selectedGateway, value) && value is not null)
             {
                 GatewayLanIp = value.LanIp;
+                if (value.TargetDevicePort is > 0 and <= 65535 && !string.IsNullOrWhiteSpace(value.TargetDeviceIp))
+                {
+                    TargetDeviceIp = value.TargetDeviceIp;
+                    TargetDevicePort = value.TargetDevicePort;
+                }
+                if (!string.IsNullOrWhiteSpace(value.TargetSubnetMask))
+                {
+                    VirtualSubnetMask = value.TargetSubnetMask;
+                }
                 TryUseAutoPairing(value);
             }
         }
@@ -263,6 +288,7 @@ public sealed class EasyModeViewModel : ObservableObject
 
     private async Task ApplyGatewayAsync()
     {
+        DetectAdapters();
         var config = BuildConfigFromInput();
         config.Role = DeviceRole.GatewayAgent;
         SelectedRole = DeviceRole.GatewayAgent;
@@ -275,7 +301,7 @@ public sealed class EasyModeViewModel : ObservableObject
         }
 
         Preview();
-        if (!ConfirmNetworkChange("确认配置主机 A / 网关端"))
+        if (!await ConfirmNetworkChangeAsync("确认配置主机 A / 网关端"))
         {
             Status = "已取消应用，未修改网络配置。";
             return;
@@ -308,6 +334,10 @@ public sealed class EasyModeViewModel : ObservableObject
             TryUseAutoPairing(SelectedGateway);
             config.SharedKey = SharedKey.Trim();
             config.GatewayLanIp = GatewayLanIp.Trim();
+            if (SelectedGateway.ProxyControlPort is > 0 and <= 65535)
+            {
+                config.ProxyControlPort = SelectedGateway.ProxyControlPort;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(config.SharedKey))
@@ -324,7 +354,7 @@ public sealed class EasyModeViewModel : ObservableObject
         }
 
         Preview();
-        if (!ConfirmNetworkChange("确认连接主机 A / 调试端"))
+        if (!await ConfirmNetworkChangeAsync("确认连接主机 A / 调试端"))
         {
             Status = "已取消应用，未修改网络配置。";
             return;
@@ -336,9 +366,17 @@ public sealed class EasyModeViewModel : ObservableObject
 
         var result = await _networkConfigurationExecutor.ApplyClientConfigurationAsync(config);
         ApplyStatus = result.Status;
+#if ROBOTNET_MACOS
+        Status = result.Success
+            ? UseTargetSubnet
+                ? $"目标路由已配置，请用 {config.TargetDeviceIp}:{config.TargetDevicePort} 验证设备。"
+                : $"TCP 代理已监听 127.0.0.1:{config.LocalListenPort}，请通过此端口连接。"
+            : result.Message;
+#else
         Status = result.Success
             ? "主机 B 已连接，现在你的代码可以访问目标设备 IP/端口。"
             : result.Message;
+#endif
         AddResultLogs(result);
     }
 
@@ -381,12 +419,17 @@ public sealed class EasyModeViewModel : ObservableObject
             Status = $"网关端网络配置已应用，但启动被发现服务失败：{ex.Message}";
             ExecutionLogs.Add(Status);
             _logService.Error("网关端启动被发现服务失败。", ex);
+#if ROBOTNET_MACOS
+            var rollback = await _networkConfigurationExecutor.RollbackLastConfigurationAsync();
+            AddResultLogs(rollback);
+            Status += " " + rollback.Message;
+#endif
         }
     }
 
     private async Task RollbackAsync()
     {
-        if (!_userConfirmationService.Confirm(
+        if (!await _userConfirmationService.ConfirmAsync(
                 "确认恢复网络配置",
                 "将回滚本程序上一次应用的网络配置记录。此操作不会修改默认路由、DNS 或关闭网卡。是否继续？"))
         {
@@ -402,7 +445,7 @@ public sealed class EasyModeViewModel : ObservableObject
         AddResultLogs(result);
     }
 
-    private bool ConfirmNetworkChange(string title)
+    private Task<bool> ConfirmNetworkChangeAsync(string title)
     {
         var modifyingSteps = PreviewSteps
             .Where(step => step.WillModifySystem)
@@ -414,7 +457,7 @@ public sealed class EasyModeViewModel : ObservableObject
             ? "当前没有需要修改系统网络配置的步骤。"
             : string.Join(Environment.NewLine, modifyingSteps);
 
-        return _userConfirmationService.Confirm(
+        return _userConfirmationService.ConfirmAsync(
             title,
             $"即将在程序内执行以下网络配置。请确认这些步骤符合预期：{Environment.NewLine}{Environment.NewLine}{preview}{Environment.NewLine}{Environment.NewLine}程序不会修改默认路由、DNS，也不会关闭 WiFi 或 VPN。是否继续？");
     }
@@ -433,7 +476,12 @@ public sealed class EasyModeViewModel : ObservableObject
         config.EnableNat = true;
         config.EnablePreciseRoute = true;
         config.EnableTcpProxyMode = true;
+#if ROBOTNET_MACOS
+        config.EnableVirtualSubnetMode = UseTargetSubnet;
+        config.TargetDeviceInterfaceName = TargetDeviceInterfaceName.Trim();
+#else
         config.EnableVirtualSubnetMode = true;
+#endif
 
         return config;
     }
@@ -462,6 +510,10 @@ public sealed class EasyModeViewModel : ObservableObject
         LocalListenPort = config.LocalListenPort;
         GatewayLanIp = config.GatewayLanIp;
         SharedKey = config.SharedKey;
+#if ROBOTNET_MACOS
+        TargetDeviceInterfaceName = config.TargetDeviceInterfaceName;
+        UseTargetSubnet = config.EnableVirtualSubnetMode;
+#endif
 
         var lastRecord = _networkConfigurationExecutor.GetLastOperation();
         if (lastRecord is not null)
@@ -512,7 +564,8 @@ public sealed class EasyModeViewModel : ObservableObject
     {
         var config = _configurationService.Load();
         var lan = _networkAdapterService.FindLanCandidates().FirstOrDefault();
-        if (lan is not null && string.IsNullOrWhiteSpace(GatewayLanIp))
+        if (SelectedRole != DeviceRole.DebugClient && lan is not null &&
+            (string.IsNullOrWhiteSpace(GatewayLanIp) || !_networkAdapterService.GetAdapters().Any(adapter => adapter.IPv4Address == GatewayLanIp)))
         {
             GatewayLanIp = lan.IPv4Address;
         }
@@ -531,9 +584,21 @@ public sealed class EasyModeViewModel : ObservableObject
     private void RefreshGatewayList()
     {
         var selectedId = SelectedGateway?.DeviceId;
+        var ownId = _configurationService.Load().DeviceId;
+        var devices = _discoveryService.GetOnlineDevices()
+            .Where(device => device.Role == DeviceRole.GatewayAgent && device.IsOnline && device.DeviceId != ownId)
+            .ToArray();
+        if (devices.Length == Gateways.Count && devices.Zip(Gateways).All(pair =>
+                pair.First.DeviceId == pair.Second.DeviceId && pair.First.LanIp == pair.Second.LanIp &&
+                pair.First.ComputerName == pair.Second.ComputerName && pair.First.AutoPairingToken == pair.Second.AutoPairingToken &&
+                pair.First.ProxyControlPort == pair.Second.ProxyControlPort && pair.First.TargetDeviceIp == pair.Second.TargetDeviceIp &&
+                pair.First.TargetDevicePort == pair.Second.TargetDevicePort && pair.First.TargetSubnetMask == pair.Second.TargetSubnetMask))
+        {
+            return;
+        }
+
         Gateways.Clear();
-        foreach (var device in _discoveryService.GetOnlineDevices()
-                     .Where(device => device.Role == DeviceRole.GatewayAgent && device.IsOnline))
+        foreach (var device in devices)
         {
             Gateways.Add(device);
         }
@@ -545,7 +610,7 @@ public sealed class EasyModeViewModel : ObservableObject
 
     private void OnDeviceDiscovered(object? sender, DeviceInfo device)
     {
-        if (device.Role != DeviceRole.GatewayAgent)
+        if (!IsClientRole || device.Role != DeviceRole.GatewayAgent)
         {
             return;
         }
@@ -577,14 +642,6 @@ public sealed class EasyModeViewModel : ObservableObject
 
     private static void RunOnUiThread(Action action)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(action);
-        }
+        UiThread.Post(action);
     }
 }

@@ -1,0 +1,218 @@
+<UserControl x:Class="RobotNet.Mac.Views.EasyModeView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="简易模式 / 一键连接"
+                       Classes="pageTitle" />
+            <TextBlock Text="适合普通用户：主机 A 插网线连接硬件设备，主机 B 运行控制代码，两台电脑连同一个 WiFi。"
+                       Classes="pageSubtitle" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,22,0,0"
+                Background="White"
+                BorderBrush="#DDE3EA"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="18">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Height="44"
+                        Margin="0,0,10,0"
+                        Command="{Binding SelectGatewayRoleCommand}"
+                        Content="这台电脑连接硬件设备（主机 A / 网关端）" />
+                <Button Grid.Column="1"
+                        Height="44"
+                        Margin="10,0,0,0"
+                        Command="{Binding SelectClientRoleCommand}"
+                        Content="这台电脑运行控制代码（主机 B / 调试端）" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="390" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Background="White"
+                    BorderBrush="#DDE3EA"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="20"
+                    Margin="0,0,18,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="当前步骤"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding RoleText}"
+                                   Margin="0,8,0,16"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <CheckBox Content="使用目标网段路由（取消后仅使用 TCP 代理）"
+                                  IsChecked="{Binding UseTargetSubnet}" Margin="0,0,0,12" />
+
+                        <TextBlock Text="硬件设备 IP" Classes="label" />
+                        <TextBox Height="32"
+                                 Margin="0,0,0,12"
+                                 Text="{Binding TargetDeviceIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Text="硬件设备端口" Classes="label" />
+                        <TextBox Height="32"
+                                 Margin="0,0,0,12"
+                                 Text="{Binding TargetDevicePort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Text="自动配对密钥" Classes="label" />
+                        <TextBox Height="32"
+                                 Margin="0,0,0,8"
+                                 IsReadOnly="True"
+                                 Text="{Binding SharedKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Height="34"
+                                Margin="0,0,0,12"
+                                Command="{Binding GenerateSharedKeyCommand}"
+                                Content="刷新自动配对密钥"
+                                IsVisible="{Binding IsGatewayRole}" />
+
+                        <StackPanel IsVisible="{Binding IsGatewayRole}">
+                            <TextBlock Text="设备网口（如 en5，留空时自动选择）" Classes="label" />
+                            <TextBox Margin="0,0,0,12" Text="{Binding TargetDeviceInterfaceName}" />
+                            <TextBlock Text="主机 A 设备网口 IP" Classes="label" />
+                            <TextBox Height="32"
+                                     Margin="0,0,0,12"
+                                     Text="{Binding TargetDeviceAdapterIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <TextBlock Text="子网掩码" Classes="label" />
+                        <TextBox Height="32"
+                                 Margin="0,0,0,12"
+                                 Text="{Binding VirtualSubnetMask, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <StackPanel IsVisible="{Binding IsClientRole}">
+                            <TextBlock Text="本地监听端口" Classes="label" />
+                            <TextBox Height="32"
+                                     Margin="0,0,0,12"
+                                     Text="{Binding LocalListenPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <TextBlock Text="主机 A 局域网 IP" Classes="label" />
+                        <TextBox Height="32"
+                                 Margin="0,0,0,12"
+                                 Text="{Binding GatewayLanIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <StackPanel IsVisible="{Binding IsClientRole}">
+                            <TextBlock Text="发现到的主机 A" Classes="label" />
+                            <ComboBox Height="32"
+                                      Margin="0,0,0,14"
+                                      ItemsSource="{Binding Gateways}"
+                                      SelectedItem="{Binding SelectedGateway, Mode=TwoWay}"
+                                      DisplayMemberBinding="{Binding ComputerName}" />
+
+                            <Button Height="36"
+                                    Margin="0,4,0,10"
+                                    Command="{Binding RefreshGatewaysCommand}"
+                                    Content="刷新主机 A" />
+                        </StackPanel>
+                        <TextBlock Margin="0,2,0,12"
+                                   Text="主机 A 不主动搜索其他电脑；配置完成后只广播自身并等待主机 B 连接。"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   IsVisible="{Binding IsGatewayRole}" />
+                        <Button Height="36"
+                                Margin="0,0,0,10"
+                                Command="{Binding PreviewCommand}"
+                                Content="预览将要执行的操作" />
+                        <Button Height="38"
+                                Margin="0,0,0,10"
+                                Command="{Binding ApplyGatewayCommand}"
+                                Content="配置网口并等待连接"
+                                IsVisible="{Binding IsGatewayRole}" />
+                        <Button Height="38"
+                                Margin="0,0,0,10"
+                                Command="{Binding ApplyClientCommand}"
+                                Content="连接主机 A 并启动调试通道"
+                                IsVisible="{Binding IsClientRole}" />
+                        <Button Height="36"
+                                Command="{Binding RollbackCommand}"
+                                Content="恢复网络配置" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="160" />
+                </Grid.RowDefinitions>
+
+                <Border Background="White"
+                        BorderBrush="#DDE3EA"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="18">
+                    <StackPanel>
+                        <TextBlock Text="{Binding ApplyStatusText}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding Status}"
+                                   Margin="0,8,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding PlanSummary}"
+                                   Margin="0,8,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Margin="0,18,0,0"
+                        Background="White"
+                        BorderBrush="#DDE3EA"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="1">
+                    <DataGrid IsReadOnly="True" GridLinesVisibility="Horizontal" HeadersVisibility="Column" CanUserResizeColumns="True" ItemsSource="{Binding PreviewSteps}">
+                <DataGrid.Columns>
+                                <DataGridTextColumn Header="#" Width="42" Binding="{Binding Order}" />
+                                <DataGridTextColumn Header="操作" Width="160" Binding="{Binding Name}" />
+                                <DataGridTextColumn Header="风险" Width="70" Binding="{Binding RiskLevel}" />
+                                <DataGridTextColumn Header="说明" Width="320" Binding="{Binding Description}" />
+                                <DataGridTextColumn Header="命令预览" Width="520" Binding="{Binding Command}" />
+                </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+
+                <Border Grid.Row="2"
+                        Margin="0,18,0,0"
+                        Background="White"
+                        BorderBrush="#DDE3EA"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10">
+                    <ListBox ItemsSource="{Binding ExecutionLogs}"
+                             BorderThickness="0"
+                             FontFamily="Consolas"
+                             FontSize="12" />
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

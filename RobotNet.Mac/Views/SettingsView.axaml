@@ -1,0 +1,232 @@
+<UserControl x:Class="RobotNet.Mac.Views.SettingsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="高级模式 / 管理员配置"
+                           Classes="pageTitle" />
+                <TextBlock Text="{Binding SaveMessage}"
+                           Classes="pageSubtitle" />
+            </StackPanel>
+
+            <Button DockPanel.Dock="Right"
+                    Width="120"
+                    Height="36"
+                    Margin="16,6,0,0"
+                    Command="{Binding SaveCommand}"
+                    Content="保存配置" />
+        </DockPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="0,24,0,0" VerticalScrollBarVisibility="Auto">
+            <Border Background="White"
+                    BorderBrush="#DDE3EA"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24"
+                    VerticalAlignment="Top">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="360" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="设备名" Classes="label" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DeviceName}" Classes="value" />
+
+                    <TextBlock Grid.Row="1" Text="设备 ID" Classes="label" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceId}" Classes="value" />
+
+                    <TextBlock Grid.Row="2" Text="当前角色" Classes="label" />
+                    <ComboBox Grid.Row="2"
+                              Grid.Column="1"
+                              Height="32"
+                              Margin="0,0,0,14"
+                              ItemsSource="{Binding RoleOptions}"
+                              SelectedItem="{Binding SelectedRole, Mode=TwoWay}"
+                              DisplayMemberBinding="{Binding DisplayName}" />
+
+                    <TextBlock Grid.Row="3" Text="目标设备 IP" Classes="label" />
+                    <TextBox Grid.Row="3"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding TargetDeviceIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="4" Text="目标设备端口" Classes="label" />
+                    <TextBox Grid.Row="4"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding TargetDevicePort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="5" Text="UDP 发现端口" Classes="label" />
+                    <TextBox Grid.Row="5"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding DiscoveryPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="6" Text="本地监听端口" Classes="label" />
+                    <TextBox Grid.Row="6"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding LocalListenPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="7" Text="代理控制端口" Classes="label" />
+                    <TextBox Grid.Row="7"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding ProxyControlPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="8" Text="虚拟 IP" Classes="label" />
+                    <TextBox Grid.Row="8"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding VirtualIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="9" Text="虚拟掩码" Classes="label" />
+                    <TextBox Grid.Row="9"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding VirtualSubnetMask, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="10" Text="网关端 LAN IP" Classes="label" />
+                    <TextBox Grid.Row="10"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding GatewayLanIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="11" Text="目标设备网卡 IP" Classes="label" />
+                    <TextBox Grid.Row="11"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding TargetDeviceAdapterIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="12" Text="共享密钥" Classes="label" />
+                    <TextBox Grid.Row="12"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding SharedKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Grid.Row="12"
+                            Grid.Column="2"
+                            Width="120"
+                            Height="32"
+                            Margin="12,0,0,14"
+                            HorizontalAlignment="Left"
+                            Command="{Binding GenerateSharedKeyCommand}"
+                            Content="生成密钥" />
+
+                    <TextBlock Grid.Row="13" Text="代理心跳间隔" Classes="label" />
+                    <TextBox Grid.Row="13"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding ProxyHeartbeatIntervalSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="14" Text="代理空闲超时" Classes="label" />
+                    <TextBox Grid.Row="14"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding ProxyIdleTimeoutSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="15" Text="代理重试次数" Classes="label" />
+                    <TextBox Grid.Row="15"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding ProxyReconnectAttempts, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="16" Text="启用 NAT" Classes="label" />
+                    <CheckBox Grid.Row="16"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="网关端启用 NAT"
+                              IsChecked="{Binding EnableNat, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="17" Text="启用精确路由" Classes="label" />
+                    <CheckBox Grid.Row="17"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="调试端只添加目标网段精确路由"
+                              IsChecked="{Binding EnablePreciseRoute, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="18" Text="启用 TCP 代理" Classes="label" />
+                    <CheckBox Grid.Row="18"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="启动安全 TCP 代理"
+                              IsChecked="{Binding EnableTcpProxyMode, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="19" Text="启用虚拟网段" Classes="label" />
+                    <CheckBox Grid.Row="19"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              Content="允许应用路由、转发和 NAT"
+                              IsChecked="{Binding EnableVirtualSubnetMode, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="20" Text="GitHub Owner" Classes="label" />
+                    <TextBox Grid.Row="20"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding GitHubRepositoryOwner, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="21" Text="GitHub Repo" Classes="label" />
+                    <TextBox Grid.Row="21"
+                             Grid.Column="1"
+                             Height="32"
+                             Margin="0,0,0,14"
+                             Text="{Binding GitHubRepositoryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="22" Text="启动检查更新" Classes="label" />
+                    <CheckBox Grid.Row="22"
+                              Grid.Column="1"
+                              Margin="0,4,0,14"
+                              VerticalAlignment="Center"
+                              Content="启动时通过 GitHub Releases 检查 latest"
+                              IsChecked="{Binding EnableUpdateCheckOnStartup, Mode=TwoWay}" />
+                </Grid>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
