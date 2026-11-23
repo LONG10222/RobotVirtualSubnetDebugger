@@ -354,7 +354,11 @@ public sealed class EasyModeViewModel : ObservableObject
         }
 
         Preview();
+#if ROBOTNET_MACOS
+        if (UseTargetSubnet && !await ConfirmNetworkChangeAsync("确认连接主机 A / 调试端"))
+#else
         if (!await ConfirmNetworkChangeAsync("确认连接主机 A / 调试端"))
+#endif
         {
             Status = "已取消应用，未修改网络配置。";
             return;
@@ -521,6 +525,12 @@ public sealed class EasyModeViewModel : ObservableObject
             ApplyStatus = lastRecord.Status;
             Status = $"上次配置状态：{ApplyStatusText}，时间 {lastRecord.AppliedAt?.LocalDateTime:yyyy-MM-dd HH:mm:ss}。";
         }
+#if ROBOTNET_MACOS
+        else if (IsClientRole && !UseTargetSubnet)
+        {
+            Status = $"请刷新并选择主机 A。启动后，控制代码连接 127.0.0.1:{LocalListenPort}。";
+        }
+#endif
     }
 
     private void EnsureGatewayAutoPairingKey(AppConfig config)

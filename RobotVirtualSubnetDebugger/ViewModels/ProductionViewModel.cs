@@ -7,6 +7,7 @@ using RobotNet.Windows.Wpf.Services.Configuration;
 using RobotNet.Windows.Wpf.Services.CrashReporting;
 using RobotNet.Windows.Wpf.Services.Logging;
 using RobotNet.Windows.Wpf.Services.Updates;
+using RobotNet.Windows.Wpf.Services.Ui;
 using RobotNet.Windows.Wpf.Utils;
 
 namespace RobotNet.Windows.Wpf.ViewModels;
@@ -17,7 +18,11 @@ public sealed class ProductionViewModel : ObservableObject
     private readonly IUpdateService _updateService;
     private readonly ICrashReportService _crashReportService;
     private readonly ILogService _logService;
+    private readonly IUpdateInstaller? _updateInstaller;
+    private readonly IUserConfirmationService? _confirmation;
     private UpdateCheckResult? _lastUpdateResult;
+    private UpdateCheckResult? _downloadedRelease;
+    private UpdateDownloadResult? _downloadedUpdate;
     private string _updateStatus = "尚未检查更新。";
     private string _downloadStatus = string.Empty;
     private string _downloadPath = string.Empty;
@@ -26,15 +31,22 @@ public sealed class ProductionViewModel : ObservableObject
         IConfigurationService configurationService,
         IUpdateService updateService,
         ICrashReportService crashReportService,
-        ILogService logService)
+        ILogService logService,
+        IUpdateInstaller? updateInstaller,
+        IUserConfirmationService? confirmation)
     {
         _configurationService = configurationService;
         _updateService = updateService;
         _crashReportService = crashReportService;
         _logService = logService;
+        _updateInstaller = updateInstaller;
+        _confirmation = confirmation;
 
         CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync);
         DownloadUpdateCommand = new AsyncRelayCommand(DownloadUpdateAsync, () => _lastUpdateResult?.Assets.Count > 0);
+        InstallUpdateCommand = new AsyncRelayCommand(InstallUpdateAsync, () =>
+            _updateInstaller is not null && _confirmation is not null &&
+            _downloadedRelease?.IsUpdateAvailable == true && _downloadedUpdate?.Success == true);
         OpenReleasePageCommand = new RelayCommand(OpenReleasePage);
         OpenLogsFolderCommand = new RelayCommand(() => OpenFolder(AppPaths.LogsDirectory));
         OpenCrashFolderCommand = new RelayCommand(() => OpenFolder(_crashReportService.CrashReportsDirectory));
@@ -50,6 +62,8 @@ public sealed class ProductionViewModel : ObservableObject
     public AsyncRelayCommand CheckUpdatesCommand { get; }
 
     public AsyncRelayCommand DownloadUpdateCommand { get; }
+
+    public AsyncRelayCommand InstallUpdateCommand { get; }
 
     public RelayCommand OpenReleasePageCommand { get; }
 
@@ -129,9 +143,38 @@ public sealed class ProductionViewModel : ObservableObject
         }
 
         DownloadStatus = "正在下载 GitHub Release 发布包...";
-        var result = await _updateService.DownloadUpdateAsync(_lastUpdateResult);
+        var release = _lastUpdateResult;
+        _downloadedRelease = null;
+        _downloadedUpdate = null;
+        InstallUpdateCommand.RaiseCanExecuteChanged();
+        var result = await _updateService.DownloadUpdateAsync(release);
+        _downloadedRelease = release;
+        _downloadedUpdate = result;
         DownloadStatus = result.Message;
         DownloadPath = result.FilePath;
+        InstallUpdateCommand.RaiseCanExecuteChanged();
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updateInstaller is null || _confirmation is null ||
+            _downloadedRelease is not { } release || _downloadedUpdate is not { } download)
+            return;
+
+        if (!await _confirmation.ConfirmAsync("安装并重启 RobotNet", $"将安装版本 {release.LatestVersion}，然后重新打开应用。"))
+            return;
+
+        try
+        {
+            DownloadStatus = "正在准备安装。";
+            await _updateInstaller.PrepareAsync(release, download);
+            _updateInstaller.ExitForUpdate();
+        }
+        catch (Exception ex)
+        {
+            DownloadStatus = ex.Message;
+            _logService.Error("准备安装更新失败。", ex);
+        }
     }
 
     private void BuildChecklist()

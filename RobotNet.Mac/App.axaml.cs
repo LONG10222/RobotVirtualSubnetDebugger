@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using RobotNet.Mac.Platform;
+using RobotNet.Windows.Wpf.Models;
 using RobotNet.Windows.Wpf.Services.Configuration;
 using RobotNet.Windows.Wpf.Services.CrashReporting;
 using RobotNet.Windows.Wpf.Services.Diagnostics;
@@ -30,6 +31,18 @@ public partial class App : Application
             var adapters = new MacNetworkAdapters();
             var ports = new MacPortAvailability();
             var configuration = new JsonConfigurationService(new MacDeviceIdentity(), logs);
+            var startupConfig = configuration.Load();
+            if (startupConfig.Role == DeviceRole.Unknown &&
+                string.IsNullOrWhiteSpace(startupConfig.SharedKey) &&
+                adapters.GetAdapters().Where(adapter => !adapter.IsVirtual && adapter.Status == "Up")
+                    .Select(adapter => adapter.Name).Distinct().Take(2).Count() == 1)
+            {
+                startupConfig.Role = DeviceRole.DebugClient;
+                startupConfig.EnableTcpProxyMode = true;
+                startupConfig.EnableVirtualSubnetMode = false;
+                configuration.Save(startupConfig);
+            }
+
             var sessions = new SimulatedTunnelSessionService(logs);
             var discovery = new UdpDiscoveryService(configuration, adapters, logs, sessions);
             var proxy = new SafeTcpProxyService(ports, logs);
@@ -40,10 +53,11 @@ public partial class App : Application
             var updates = new GitHubReleaseUpdateService(logs);
             var preflight = new ConnectionPreflightService(ports, logs);
             var window = new MainWindow();
+            var installer = new MacUpdateInstaller(proxy, executor, () => desktop.Shutdown());
             window.DataContext = new MainViewModel(adapters, configuration, discovery, diagnostics, sessions, proxy, plans,
-                executor, privilege, new MacConfirmation(window), updates, crashes, preflight, logs);
+                executor, privilege, new MacConfirmation(window), updates, crashes, preflight, logs, installer);
             desktop.MainWindow = window;
-            if (configuration.Load().EnableUpdateCheckOnStartup)
+            if (startupConfig.EnableUpdateCheckOnStartup)
                 _ = CheckForUpdatesAsync(configuration, updates, logs);
         }
 

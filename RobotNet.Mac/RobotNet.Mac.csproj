@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DefineConstants>$(DefineConstants);ROBOTNET_MACOS</DefineConstants>
-    <Version>0.8.0</Version>
+    <Version>0.8.1</Version>
     <SharedSource>../RobotVirtualSubnetDebugger</SharedSource>
   </PropertyGroup>
   <ItemGroup>

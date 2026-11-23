@@ -32,6 +32,16 @@ scripts/publish-macos.sh osx-arm64
 scripts/publish-macos.sh osx-x64
 ```
 
-发布脚本需要 .NET 10 SDK。输出在 `artifacts/macos/`。GitHub 更新源从 Releases 中匹配当前架构的 ZIP，下载时读取同个 Release 的 `checksums-macos.sha256` 并验证 SHA256。针对独立 macOS 发布可使用 `macos-v0.8.0` 形式的标签，将两种架构 ZIP 与合并后的校验文件附到同一个 macOS Release。
+发布脚本需要 .NET 10 SDK，输出在 `artifacts/macos/`。
+
+## 应用内更新
+
+1. 从「应用程序」打开 RobotNet，进入「发布与更新」。
+2. 点击「检查更新」和「下载更新」。应用会按版本和处理器架构匹配 ZIP，验证同一发布附带的 `checksums-macos.sha256`。
+3. 停止代理并回滚正在使用的网络配置。点击「安装并重启」并确认，应用会检查包内版本、包标识和签名完整性，再替换已安装的应用。配置、日志和下载包保存在应用数据目录。
+
+安装仅接受官方仓库的 `macos-v*` 发布，目标为「应用程序」中的 `RobotNet.app`。安装失败可在「更新目录」找到已校验的 ZIP，退出应用后手动替换。安装进程的日志位于 `logs/update-install.log`。
+
+发布维护者修改 `RobotNet.Mac/RobotNet.Mac.csproj` 的 `Version` 后，将更改推送到 `macos-support`。Windows 和 macOS 检查通过后，GitHub Actions 会为尚未发布的版本创建 `macos-v<版本>` 预览发布，包含两种架构的 ZIP 和校验文件。
 
 集成测试覆盖了 macOS 网卡枚举、发现消息、配对、TCP 端口检测、加密数据双向传输、错误认证和发布包选择。管理员层的 `scripts/test-macos-network.sh` 只在隔离测试机运行，使用临时虚拟网卡验证内核路由、PF 锚点、别名与回滚。设备验收使用两台电脑和实际设备，分别测试 Mac→Windows、Windows→Mac 与 Mac→Mac，在路由及代理两种模式下访问实际端口。完成后核对默认路由、设备网口和 PF 状态。

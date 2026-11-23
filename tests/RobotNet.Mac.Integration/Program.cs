@@ -14,6 +14,25 @@ using RobotNet.Windows.Wpf.Services.Proxy;
 using RobotNet.Windows.Wpf.Services.Updates;
 using RobotNet.Windows.Wpf.Utils;
 
+if (args is ["--stage-update", var archivePath])
+{
+    await TestUpdateArchiveAsync(archivePath);
+    return;
+}
+if (args is ["--live-update", var destination])
+{
+    using var http = new HttpClient();
+    var service = new GitHubReleaseUpdateService(http, new QuietLog());
+    var release = await service.CheckForUpdatesAsync(new AppConfig());
+    Require(release.Success && release.LatestVersion == service.CurrentVersion && release.Assets.Count > 0, release.Message);
+    var update = await service.DownloadUpdateAsync(release);
+    Require(update.Success, update.Message);
+    File.Copy(update.FilePath, destination);
+    await TestUpdateArchiveAsync(destination);
+    Console.WriteLine($"通过 · 在线 GitHub Release {release.LatestVersion} 和 SHA256 下载");
+    return;
+}
+
 var realAdapters = new MacNetworkAdapters().GetAdapters();
 Require(realAdapters.Any(adapter => adapter.Name == "lo0"), "macOS 网卡枚举");
 Require(CryptographicOperations.FixedTimeEquals(SHA256.HashData([1, 2]), SHA256.HashData([1, 2])),
@@ -183,6 +202,27 @@ static async Task TestUpdateSelectionAsync()
     Console.WriteLine("通过 · macOS 更新检查忽略仅含 Windows 安装包的发布");
 }
 
+static async Task TestUpdateArchiveAsync(string filePath)
+{
+    await using var file = File.OpenRead(filePath);
+    var actual = Convert.ToHexString(await SHA256.HashDataAsync(file));
+    var match = System.Text.RegularExpressions.Regex.Match(Path.GetFileName(filePath), @"RobotNet-(\d+\.\d+\.\d+)");
+    Require(match.Success, "安装包文件名包含版本");
+    var download = new UpdateDownloadResult { FilePath = Path.GetFullPath(filePath), Sha256 = actual };
+    var stage = Directory.CreateTempSubdirectory("robotnet-test-");
+    try
+    {
+        await MacUpdateInstaller.StageUpdateAsync(stage.FullName, download, match.Groups[1].Value);
+        Require(File.Exists(Path.Combine(stage.FullName, "RobotNet.app", "Contents", "MacOS", "RobotNet.Mac")),
+            "更新包正确解压和验证");
+        Console.WriteLine($"通过 · 安装包 SHA256、签名、应用标识和版本 · {Path.GetFileName(filePath)}");
+    }
+    finally
+    {
+        stage.Delete(recursive: true);
+    }
+}
+
 static int GetFreeTcpPort()
 {
     var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -235,6 +275,7 @@ sealed class ReleaseResponse(string architecture) : HttpMessageHandler
         var releases = JsonSerializer.Serialize(new[]
         {
             new { tag_name = "v1.0.0", assets = new[] { Asset("RobotNet-win-x64.zip") } },
+            new { tag_name = "macos-v0.9.1", assets = new[] { Asset($"RobotNet-0.9.1-{architecture}.zip") } },
             new { tag_name = "macos-v0.9.0", assets = new[] { Asset($"RobotNet-0.9.0-{architecture}.zip"), Asset("checksums-macos.sha256") } }
         });
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

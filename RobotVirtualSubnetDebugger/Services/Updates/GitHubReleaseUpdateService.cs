@@ -79,8 +79,10 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
             var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 #if ROBOTNET_MACOS
             var release = (JsonSerializer.Deserialize<List<GitHubReleaseDto>>(json, _jsonOptions) ?? [])
-                .Where(candidate => candidate.Assets.Any(asset => ScoreAsset(asset.Name) > 0) &&
-                                    TryParseVersion(candidate.TagName, out _))
+                .Where(candidate => candidate.TagName.StartsWith("macos-v", StringComparison.Ordinal) &&
+                                    TryParseVersion(candidate.TagName, out _) &&
+                                    candidate.Assets.Any(asset => asset.Name == "checksums-macos.sha256") &&
+                                    candidate.Assets.Any(asset => IsMacAsset(asset.Name, NormalizeVersionText(candidate.TagName))))
                 .OrderByDescending(candidate => Version.Parse(NormalizeVersionText(candidate.TagName)))
                 .FirstOrDefault();
             if (release is null)
@@ -137,11 +139,12 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
 
     public async Task<UpdateDownloadResult> DownloadUpdateAsync(UpdateCheckResult update, CancellationToken cancellationToken = default)
     {
-        var asset = SelectBestAsset(update.Assets);
 #if ROBOTNET_MACOS
+        var asset = update.Assets.FirstOrDefault(candidate => IsMacAsset(candidate.Name, update.LatestVersion));
         var checksums = update.Assets.FirstOrDefault(candidate => candidate.Name == "checksums-macos.sha256");
         if (asset is null || checksums is null)
 #else
+        var asset = SelectBestAsset(update.Assets);
         if (asset is null)
 #endif
         {
@@ -188,7 +191,12 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
             return new UpdateDownloadResult
             {
                 Success = true,
+#if ROBOTNET_MACOS
+                Message = "安装包已通过 SHA256 校验。",
+                Sha256 = Convert.ToHexString(expectedHash),
+#else
                 Message = "更新包已下载。请关闭当前程序后手动运行或替换。",
+#endif
                 FilePath = targetPath
             };
         }
@@ -228,8 +236,12 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
 
         throw new InvalidDataException($"校验文件未包含 {fileName}。");
     }
-#endif
-
+    private static bool IsMacAsset(string name, string version)
+    {
+        var architecture = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
+        return name == $"RobotNet-{version}-{architecture}.zip";
+    }
+#else
     private static ReleaseAssetInfo? SelectBestAsset(IReadOnlyList<ReleaseAssetInfo> assets)
     {
         return assets
@@ -240,10 +252,6 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
     private static int ScoreAsset(string name)
     {
         var lower = name.ToLowerInvariant();
-#if ROBOTNET_MACOS
-        var architecture = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
-        return lower.Contains(architecture, StringComparison.Ordinal) && lower.EndsWith(".zip", StringComparison.Ordinal) ? 1 : 0;
-#else
         var score = 0;
         if (lower.Contains("win-x64", StringComparison.Ordinal))
         {
@@ -265,8 +273,8 @@ public sealed class GitHubReleaseUpdateService : IUpdateService
         }
 
         return score;
-#endif
     }
+#endif
 
     private static string GetCurrentVersion()
     {

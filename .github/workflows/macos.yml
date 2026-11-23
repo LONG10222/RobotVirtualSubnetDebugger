@@ -23,6 +23,8 @@ jobs:
           scripts/publish-macos.sh osx-arm64
           scripts/publish-macos.sh osx-x64
           cat artifacts/macos/*.zip.sha256 > artifacts/macos/checksums-macos.sha256
+          dotnet run --project tests/RobotNet.Mac.Integration -c Release -- --stage-update artifacts/macos/*osx-arm64.zip
+          dotnet run --project tests/RobotNet.Mac.Integration -c Release -- --stage-update artifacts/macos/*osx-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: RobotNet-macOS
@@ -38,3 +40,38 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet build RobotVirtualSubnetDebugger -c Release
+  publish:
+    if: github.ref == 'refs/heads/macos-support' && github.event_name == 'push'
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: robotnet-macos-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: RobotNet-macOS
+          path: release-assets
+      - name: Publish macOS preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' RobotNet.Mac/RobotNet.Mac.csproj)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="macos-v$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$tag is already published."
+            exit 0
+          fi
+          (cd release-assets && sha256sum -c checksums-macos.sha256)
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --latest=false --title "RobotNet for macOS $version" \
+            --notes "Apple Silicon and Intel preview builds. Unzip RobotNet.app and move it to Applications. In-app updates verify SHA256 before installation." \
+            release-assets/RobotNet-"$version"-osx-arm64.zip \
+            release-assets/RobotNet-"$version"-osx-x64.zip \
+            release-assets/checksums-macos.sha256

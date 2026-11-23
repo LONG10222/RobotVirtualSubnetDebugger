@@ -32,7 +32,8 @@ public sealed class MainViewModel : ObservableObject
         IUpdateService updateService,
         ICrashReportService crashReportService,
         IConnectionPreflightService connectionPreflightService,
-        ILogService logService)
+        ILogService logService,
+        IUpdateInstaller? updateInstaller = null)
     {
         var dashboardViewModel = new DashboardViewModel(configurationService, networkAdapterService, adminElevationService);
         var tutorialViewModel = new TutorialViewModel();
@@ -53,7 +54,7 @@ public sealed class MainViewModel : ObservableObject
             virtualSubnetService,
             networkConfigurationExecutor,
             userConfirmationService);
-        var productionViewModel = new ProductionViewModel(configurationService, updateService, crashReportService, logService);
+        var productionViewModel = new ProductionViewModel(configurationService, updateService, crashReportService, logService, updateInstaller, userConfirmationService);
         var settingsViewModel = new SettingsViewModel(configurationService, logService);
         var diagnosticsViewModel = new DiagnosticsViewModel(configurationService, diagnosticService);
         var logsViewModel = new LogsViewModel(logService);
