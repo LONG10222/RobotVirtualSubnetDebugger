@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DefineConstants>$(DefineConstants);ROBOTNET_MACOS</DefineConstants>
-    <Version>0.8.1</Version>
+    <Version>0.8.2</Version>
     <SharedSource>../RobotVirtualSubnetDebugger</SharedSource>
   </PropertyGroup>
   <ItemGroup>
@@ -18,6 +18,7 @@
              Exclude="$(SharedSource)/Services/Ui/WpfUserConfirmationService.cs;$(SharedSource)/Services/Platform/Windows*.cs;$(SharedSource)/Services/Platform/TcpProxyServiceAdapter.cs"
              LinkBase="Shared" />
     <InternalsVisibleTo Include="RobotNet.Mac.Integration" />
+    <AvaloniaResource Include="../assets/RobotNet.png" Link="Assets/RobotNet.png" />
     <EmbeddedResource Include="Platform/network.sh" />
   </ItemGroup>
 </Project>

@@ -1,12 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RobotNet.Mac.MainWindow"
+        Icon="avares://RobotNet.Mac/Assets/RobotNet.png"
         Title="RobotNet · macOS" Width="1180" Height="790"
         MinWidth="850" MinHeight="590" Background="{StaticResource AppBackgroundBrush}">
     <Grid ColumnDefinitions="210,*">
         <DockPanel Background="#E4EBF1">
             <StackPanel DockPanel.Dock="Top" Margin="20,24,20,18" Spacing="4">
-                <TextBlock Text="RobotNet" FontSize="24" FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Image Source="avares://RobotNet.Mac/Assets/RobotNet.png"
+                           Width="34" Height="34" AutomationProperties.Name="RobotNet" />
+                    <TextBlock Text="RobotNet" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
                 <TextBlock Text="局域网设备调试" Foreground="{StaticResource TextSecondaryBrush}" />
             </StackPanel>
             <ListBox ItemsSource="{Binding NavigationItems}" Margin="10,0,10,10"

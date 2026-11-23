@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -8,10 +8,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.7.2</Version>
-    <AssemblyVersion>0.7.2.0</AssemblyVersion>
-    <FileVersion>0.7.2.0</FileVersion>
-    <InformationalVersion>0.7.2-auto-pairing</InformationalVersion>
+    <ApplicationIcon>Assets/RobotNet.ico</ApplicationIcon>
+    <Version>0.7.3</Version>
+    <AssemblyVersion>0.7.3.0</AssemblyVersion>
+    <FileVersion>0.7.3.0</FileVersion>
+    <InformationalVersion>0.7.3-auto-pairing</InformationalVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets/RobotNet.ico" />
+    <Resource Include="../assets/RobotNet.png" Link="Assets/RobotNet.png" />
+  </ItemGroup>
 
 </Project>

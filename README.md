@@ -1,3 +1,5 @@
+<img src="assets/RobotNet.png" width="96" height="96" alt="RobotNet 图标：青白双环互联" />
+
 # RobotNet
 
 RobotNet 是一个 Windows 和 macOS 局域网调试工具。将一台电脑用网线接到机械臂或其他以太网设备，就可以在同一局域网的另一台电脑上运行控制程序。
